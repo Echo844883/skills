@@ -1,9 +1,9 @@
 {
-  "name": "taste-skill",
-  "description": "Taste skill library for Claude Code — frontend design, image-to-code, and aesthetic skills",
+  "name": "echo-skills",
+  "description": "Vendored Agent Skills: taste-skill (frontend design) and superpowers (engineering workflow)",
   "owner": {
-    "name": "leonxlnx",
-    "email": ""
+    "name": "Echo844883",
+    "email": "anyecho93@gmail.com"
   },
   "plugins": [
     {
@@ -14,6 +14,16 @@
       "author": {
         "name": "leonxlnx",
         "email": ""
+      }
+    },
+    {
+      "name": "superpowers",
+      "description": "Core skills library: TDD, systematic debugging, planning, code review, worktrees",
+      "version": "6.3.0",
+      "source": "./vendor/superpowers",
+      "author": {
+        "name": "Jesse Vincent",
+        "email": "jesse@fsck.com"
       }
     }
   ]

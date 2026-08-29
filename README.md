@@ -1,13 +1,13 @@
 # skills
 
-Agent Skills for Claude Code, vendored from [Leonxlnx/taste-skill](https://github.com/Leonxlnx/taste-skill)
-(MIT, © Leonxlnx) at commit `ccbc156` (2026-08-24).
+27 Agent Skills for Claude Code, vendored from two upstream projects.
 
-Thirteen frontend design / "anti-slop" skills, plus the research notes behind the
-output-enforcement skill. Upstream's README assets, sponsor images, and build
-scripts are not vendored — only the skills themselves.
+| Collection | Upstream | Vendored at | Skills | What it covers |
+| --- | --- | --- | --- | --- |
+| taste-skill | [Leonxlnx/taste-skill](https://github.com/Leonxlnx/taste-skill) (MIT, © Leonxlnx) | `ccbc156`, 2026-08-24 | 13 | Frontend design taste, "anti-slop" UI, image generation |
+| superpowers | [obra/superpowers](https://github.com/obra/superpowers) v6.3.0 (MIT, © Jesse Vincent) | `b36e082`, 2026-08-12 | 14 | Engineering workflow: TDD, debugging, planning, code review |
 
-## Skills
+## taste-skill
 
 | Directory | Skill name | What it does |
 | --- | --- | --- |
@@ -25,18 +25,49 @@ scripts are not vendored — only the skills themselves.
 | `skills/stitch-skill` | `stitch-design-taste` | Emits `DESIGN.md` files in Google Stitch's semantic design language. |
 | `skills/output-skill` | `full-output-enforcement` | Bans truncation and placeholder comments; forces complete code output. |
 
-Note that directory names and skill `name:` fields differ for several skills — the
-`name:` in the frontmatter is what you invoke. `skills/llms.txt` carries upstream's
+Directory names and skill `name:` fields differ for several of these — the `name:`
+in the frontmatter is what you invoke. `skills/llms.txt` carries upstream's
 one-line summary of each.
+
+Upstream's README assets, sponsor images, and build scripts are not vendored.
+
+## superpowers
+
+Lives under `vendor/superpowers/`, kept in upstream's full layout so its hooks and
+scripts stay coherent.
+
+| Skill | What it does |
+| --- | --- |
+| `brainstorming` | Explores intent and requirements before any creative work. |
+| `writing-plans` | Turns a spec into a written implementation plan. |
+| `executing-plans` | Executes a written plan with review checkpoints. |
+| `subagent-driven-development` | Runs independent plan tasks in the current session. |
+| `dispatching-parallel-agents` | Fans out 2+ independent tasks with no shared state. |
+| `test-driven-development` | Tests before implementation, every feature and bugfix. |
+| `systematic-debugging` | Root-cause discipline for any bug or test failure. |
+| `requesting-code-review` | Verifies work against requirements before merging. |
+| `receiving-code-review` | Handles review feedback with verification, not agreement. |
+| `verification-before-completion` | Evidence before any "it's done" claim. |
+| `using-git-worktrees` | Isolated workspaces for feature work. |
+| `finishing-a-development-branch` | Decides how to integrate completed work. |
+| `using-superpowers` | Upstream's session-start primer on finding and using skills. |
+| `writing-skills` | Creating, editing, and verifying skills. |
+
+**The upstream SessionStart hook is not active here.** Upstream ships
+`vendor/superpowers/hooks/`, which injects `using-superpowers` into every session
+and requires a skill invocation before any reply. Vendored this way the hook never
+runs — the skills are available on demand instead. Install the upstream plugin
+directly (`/plugin marketplace add obra/superpowers`) if you want that behavior.
 
 ## Two copies, on purpose
 
 | Path | Purpose | Directory names |
 | --- | --- | --- |
-| `skills/` | The source of truth, and the plugin-marketplace layout. | Upstream's (`brutalist-skill/`, …) |
-| `.claude/skills/` | Auto-loaded in any Claude Code session opened in this repo. | Each skill's `name:` field (`industrial-brutalist-ui/`, …) |
+| `skills/` | taste-skill source, and the root plugin's layout. | Upstream's (`brutalist-skill/`, …) |
+| `vendor/superpowers/` | superpowers source, full upstream layout. | Upstream's |
+| `.claude/skills/` | All 27, auto-loaded in any session opened in this repo. | Each skill's `name:` field (`industrial-brutalist-ui/`, …) |
 
-`.claude/skills/` is generated. After editing anything under `skills/`, run:
+`.claude/skills/` is generated. After editing either source tree, run:
 
 ```
 ./scripts/sync-local-skills.sh
@@ -52,7 +83,8 @@ content to be on the default branch):
 
 ```
 /plugin marketplace add Echo844883/skills
-/plugin install taste-skill@taste-skill
+/plugin install taste-skill@echo-skills
+/plugin install superpowers@echo-skills
 ```
 
 For every project on a machine, copy the skill directories you want into
@@ -60,10 +92,15 @@ For every project on a machine, copy the skill directories you want into
 
 ## Updating from upstream
 
-Re-copy `skills/`, `research/`, `.claude-plugin/`, `LICENSE`, and `CHANGELOG.md`
-from a fresh clone of upstream, run `./scripts/sync-local-skills.sh`, and bump the
-commit noted at the top of this file.
+- **taste-skill** — re-copy `skills/`, `research/`, `LICENSE`, and `CHANGELOG.md`
+  from a fresh clone of upstream.
+- **superpowers** — replace `vendor/superpowers/` wholesale from a fresh clone
+  (drop its `.git/`), and bump the version in `.claude-plugin/marketplace.json`.
+
+Then run `./scripts/sync-local-skills.sh` and update the commits in the table above.
 
 ## License
 
-MIT — see [`LICENSE`](LICENSE). Copyright © 2026 Leonxlnx.
+Both collections are MIT. `LICENSE` is taste-skill's (© 2026 Leonxlnx);
+superpowers' own license sits at `vendor/superpowers/LICENSE`
+(© 2025 Jesse Vincent).
