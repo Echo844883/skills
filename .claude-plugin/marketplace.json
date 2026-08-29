@@ -1,6 +1,6 @@
 {
   "name": "echo-skills",
-  "description": "Vendored Agent Skills: taste-skill (frontend design), superpowers (engineering workflow), ego-browser (browser automation)",
+  "description": "Vendored Agent Skills: taste-skill (frontend design) and superpowers (engineering workflow)",
   "owner": {
     "name": "Echo844883",
     "email": "anyecho93@gmail.com"
@@ -24,19 +24,6 @@
       "author": {
         "name": "Jesse Vincent",
         "email": "jesse@fsck.com"
-      }
-    },
-    {
-      "name": "ego-browser",
-      "description": "Browser automation via the ego lite app; requires the ego lite browser installed separately (macOS only)",
-      "version": "1.2.6",
-      "source": "./vendor/ego-lite",
-      "skills": [
-        "./skills/ego-browser"
-      ],
-      "author": {
-        "name": "CitroLabs",
-        "email": "contact@citrolabs.ai"
       }
     }
   ]
