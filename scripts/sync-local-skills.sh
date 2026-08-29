@@ -3,6 +3,7 @@
 #
 # skills/                    - taste-skill, upstream directory names, plugin root
 # vendor/superpowers/skills/ - superpowers, upstream directory names
+# vendor/ego-lite/skills/    - ego-browser, upstream directory names
 # .claude/skills/            - the auto-loaded copy for sessions opened in this
 #                              repo; directory names match each SKILL.md `name:`
 #
@@ -10,7 +11,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-SOURCES=(skills vendor/superpowers/skills)
+SOURCES=(skills vendor/superpowers/skills vendor/ego-lite/skills)
 
 rm -rf .claude/skills
 mkdir -p .claude/skills
