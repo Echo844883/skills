@@ -1,11 +1,12 @@
 # skills
 
-27 Agent Skills for Claude Code, vendored from two upstream projects.
+48 Agent Skills for Claude Code, vendored from three upstream projects.
 
 | Collection | Upstream | Vendored at | Skills | What it covers |
 | --- | --- | --- | --- | --- |
 | taste-skill | [Leonxlnx/taste-skill](https://github.com/Leonxlnx/taste-skill) (MIT, © Leonxlnx) | `ccbc156`, 2026-08-24 | 13 | Frontend design taste, "anti-slop" UI, image generation |
 | superpowers | [obra/superpowers](https://github.com/obra/superpowers) v6.3.0 (MIT, © Jesse Vincent) | `b36e082`, 2026-08-12 | 14 | Engineering workflow: TDD, debugging, planning, code review |
+| baoyu-skills | [JimLiu/baoyu-skills](https://github.com/JimLiu/baoyu-skills) v2.5.2 (MIT, © Jim Liu 宝玉) | `6b7a2e4`, 2026-07-03 | 21 | Content production and publishing — **most need `bun` plus credentials** |
 
 ## taste-skill
 
@@ -59,13 +60,59 @@ and requires a skill invocation before any reply. Vendored this way the hook nev
 runs — the skills are available on demand instead. Install the upstream plugin
 directly (`/plugin marketplace add obra/superpowers`) if you want that behavior.
 
+## baoyu-skills
+
+Lives under `vendor/baoyu-skills/`. Content production aimed at Chinese-language
+publishing.
+
+| Skill | What it does | Needs |
+| --- | --- | --- |
+| `baoyu-diagram` | Dark-themed SVG diagrams: architecture, flowchart, sequence. | — |
+| `baoyu-infographic` | Infographics; 21 layouts × 22 visual styles. | — |
+| `baoyu-cover-image` | Article cover images across 5 design dimensions. | — |
+| `baoyu-article-illustrator` | Finds where an article needs visuals, then makes them. | — |
+| `baoyu-xhs-images` | 小红书 image-card series; 12 styles, 8 layouts. | — |
+| `baoyu-comic` | Educational comics in several art styles. | bun |
+| `baoyu-slide-deck` | Slide-deck images from an outline. | bun |
+| `baoyu-image-gen` | Image generation across GPT Image 2, Azure, Google, OpenRouter, DashScope, GLM, MiniMax. | bun + provider key |
+| `baoyu-translate` | Translation. | bun |
+| `baoyu-format-markdown` | Formats text into structured markdown with frontmatter. | bun |
+| `baoyu-markdown-to-html` | Markdown → styled HTML with WeChat-compatible themes. | bun |
+| `baoyu-url-to-markdown` | Any URL → markdown via `baoyu-fetch` (Chrome CDP). | bun |
+| `baoyu-youtube-transcript` | YouTube transcripts and cover images. | bun |
+| `baoyu-compress-image` | Compresses images to WebP or PNG. | bun |
+| `baoyu-electron-extract` | Unpacks `.asar` bundles from installed Electron apps. | bun |
+| `baoyu-post-to-wechat` | Posts to 微信公众号 via API or Chrome CDP. | bun + account |
+| `baoyu-post-to-weibo` | Posts to 微博, including headline articles. | bun + account |
+| `baoyu-post-to-x` | Posts to X, including X Articles. | bun + account |
+| `baoyu-wechat-summary` | Digests WeChat group chats. | `wx-cli` binary |
+| `baoyu-danger-gemini-web` | Text and image generation through Gemini's web API. | bun + **see below** |
+| `baoyu-danger-x-to-markdown` | X posts and articles → markdown. | bun + **see below** |
+
+### Before using these
+
+- **`bun` is the main dependency.** Most skills shell out to CLIs run through
+  `bun`/`npx`. `baoyu-fetch`, `baoyu-md`, and `baoyu-chrome-cdp` are published on
+  npm, so `npx` fetches them on demand.
+- **`packages/baoyu-codex-imagegen` is vendored** because it is *not* published on
+  npm and some skills locate it by walking up to the plugin root. Upstream's other
+  three packages are not vendored — npm serves them.
+- **The two `baoyu-danger-*` skills use reverse-engineered private APIs** (Gemini
+  Web, X) and need your own logged-in session. Upstream names them "danger" for a
+  reason: they can break without warning, and they likely violate those services'
+  terms. Delete them from `.claude/skills/` if you would rather not have them
+  available.
+- **The posting skills act on your real accounts.** `baoyu-post-to-*` publish to
+  live 公众号 / 微博 / X once credentials are configured.
+
 ## Two copies, on purpose
 
 | Path | Purpose | Directory names |
 | --- | --- | --- |
 | `skills/` | taste-skill source, and the root plugin's layout. | Upstream's (`brutalist-skill/`, …) |
 | `vendor/superpowers/` | superpowers source, full upstream layout. | Upstream's |
-| `.claude/skills/` | All 27, auto-loaded in any session opened in this repo. | Each skill's `name:` field (`industrial-brutalist-ui/`, …) |
+| `vendor/baoyu-skills/` | baoyu-skills source. | Upstream's |
+| `.claude/skills/` | All 48, auto-loaded in any session opened in this repo. | Each skill's `name:` field (`industrial-brutalist-ui/`, …) |
 
 `.claude/skills/` is generated. After editing either source tree, run:
 
@@ -85,6 +132,7 @@ content to be on the default branch):
 /plugin marketplace add Echo844883/skills
 /plugin install taste-skill@echo-skills
 /plugin install superpowers@echo-skills
+/plugin install baoyu-skills@echo-skills
 ```
 
 For every project on a machine, copy the skill directories you want into
@@ -96,11 +144,14 @@ For every project on a machine, copy the skill directories you want into
   from a fresh clone of upstream.
 - **superpowers** — replace `vendor/superpowers/` wholesale from a fresh clone
   (drop its `.git/`), and bump the version in `.claude-plugin/marketplace.json`.
+- **baoyu-skills** — re-copy `skills/`, `docs/`, `packages/baoyu-codex-imagegen/`,
+  `LICENSE`, and both READMEs into `vendor/baoyu-skills/`, and bump the version in
+  `.claude-plugin/marketplace.json`.
 
 Then run `./scripts/sync-local-skills.sh` and update the commits in the table above.
 
 ## License
 
-Both collections are MIT. `LICENSE` is taste-skill's (© 2026 Leonxlnx);
-superpowers' own license sits at `vendor/superpowers/LICENSE`
-(© 2025 Jesse Vincent).
+All three collections are MIT. `LICENSE` is taste-skill's (© 2026 Leonxlnx); the
+others keep their own at `vendor/superpowers/LICENSE` (© 2025 Jesse Vincent) and
+`vendor/baoyu-skills/LICENSE` (© 2026 Jim Liu).

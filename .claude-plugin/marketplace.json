@@ -1,6 +1,6 @@
 {
   "name": "echo-skills",
-  "description": "Vendored Agent Skills: taste-skill (frontend design) and superpowers (engineering workflow)",
+  "description": "Vendored Agent Skills: taste-skill (frontend design), superpowers (engineering workflow), baoyu-skills (content production)",
   "owner": {
     "name": "Echo844883",
     "email": "anyecho93@gmail.com"
@@ -24,6 +24,16 @@
       "author": {
         "name": "Jesse Vincent",
         "email": "jesse@fsck.com"
+      }
+    },
+    {
+      "name": "baoyu-skills",
+      "description": "Content production and publishing: illustrations, infographics, diagrams, slides, translation, and posting to WeChat / Weibo / X / XHS",
+      "version": "2.5.2",
+      "source": "./vendor/baoyu-skills",
+      "author": {
+        "name": "Jim Liu (\u5b9d\u7389)",
+        "email": "junminliu@gmail.com"
       }
     }
   ]
