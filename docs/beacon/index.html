@@ -8,7 +8,16 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="信标">
 <title>信标提醒台</title>
+<!--
+  manifest 和图标是独立文件，只有托管访问（如 GitHub Pages）时才会被浏览器请求，
+  用来支持「安装到主屏幕」和离线缓存。以单个 index.html 文件本地打开时，这两行
+  请求不到东西会静默失败，不影响页面本身运行——闹钟逻辑仍然零外部请求。
+-->
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
 <style>:root{color-scheme:dark}html{-webkit-text-size-adjust:100%}img{max-width:100%}[hidden]{display:none!important}</style>
 </head>
 <body>
@@ -1429,6 +1438,16 @@
   document.addEventListener("visibilitychange", function () {
     document.hidden ? stopLoop() : startLoop();
   });
+
+  /* ═══ 离线缓存 ═══════════════════════════════════════
+     只在 http/https 下注册——file:// 本地打开时浏览器不支持 Service
+     Worker，跳过即可，不影响闹钟本身（本来就零外部请求）。装过一次
+     （或首次访问过一次）之后，断网重开这个网址也能正常使用、正常响铃。 */
+  if ("serviceWorker" in navigator && /^https?:$/.test(location.protocol)) {
+    window.addEventListener("load", function () {
+      navigator.serviceWorker.register("sw.js").catch(function () {});
+    });
+  }
 
   /* ═══ 启动 ═══════════════════════════════════════════ */
   load();
