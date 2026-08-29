@@ -183,6 +183,7 @@
     border-radius: var(--r-ctl);
     cursor: pointer;
     box-shadow: var(--sh-1);
+    white-space: nowrap;
     transition: background .16s, border-color .16s, transform .12s, box-shadow .16s;
   }
   .btn:hover { background: var(--panel-2); border-color: var(--accent); color: var(--accent); }
@@ -333,6 +334,10 @@
   .blk b { font-weight: 600; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); }
   .blk .blk-time { font-family: var(--mono); font-size: 10px; color: var(--ink-mid); }
   .blk.is-done { background: var(--good-wash); border-left-color: var(--good); }
+  .blk-todo { background: var(--panel-2); border-left-color: var(--accent); border: 1px dashed var(--line); border-left: 3px solid var(--accent); }
+  .blk-todo.st-partial { background: var(--focus-wash); border-left-color: var(--focus); }
+  .blk-todo.st-done { background: var(--good-wash); border-left-color: var(--good); }
+  .blk-todo.st-done b { text-decoration: line-through; color: var(--ink-dim); }
   .blk.is-done b { color: var(--ink-dim); text-decoration: line-through; }
 
   /* ---------- dialog ---------- */
@@ -346,7 +351,12 @@
   dialog::backdrop { background: rgba(10, 12, 16, .5); }
   .dlg-hd { padding: 13px 16px; border-bottom: 1px solid var(--line-soft); font-weight: 600; font-size: 14px; }
   .dlg-bd { padding: 16px; display: flex; flex-direction: column; gap: 13px; }
-  .dlg-ft { padding: 12px 16px; border-top: 1px solid var(--line-soft); display: flex; gap: 8px; align-items: center; }
+  .dlg-ft {
+    padding: 12px 16px; border-top: 1px solid var(--line-soft);
+    display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+    background: var(--panel-2);
+  }
+  .dlg-ft .btn { flex: 0 0 auto; }
   .dlg-ft .spacer { margin-left: auto; }
 
   .field { display: flex; flex-direction: column; gap: 5px; }
@@ -415,6 +425,9 @@
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
   .mchip.is-done { opacity: .5; text-decoration: line-through; }
+  .mchip-todo { background: var(--panel-2); border-left-color: var(--accent); border-style: dashed; }
+  .mchip-todo.st-partial { background: var(--focus-wash); border-left-color: var(--focus); }
+  .mchip-todo.st-done { background: var(--good-wash); border-left-color: var(--good); opacity: .6; text-decoration: line-through; }
   .mmore { font-size: 10.5px; color: var(--ink-dim); font-family: var(--mono); }
 
   /* ---------- pomodoro ---------- */
@@ -448,7 +461,49 @@
   .pomo-bd.is-focusing { background: var(--focus-wash); }
   .pomo-bd { transition: background .4s; }
 
-  .day-list { display: flex; flex-direction: column; gap: 0; }
+  .day-list { display: flex; flex-direction: column; gap: 7px; padding: 10px; }
+
+  /* 一次性安排：用虚线左缘和主色区别于课程学习块 */
+  .todo-item {
+    display: grid;
+    grid-template-columns: 3px auto 1fr auto;
+    align-items: center;
+    gap: 0 10px;
+    padding: 10px 12px;
+    border-radius: var(--r-ctl);
+    background: var(--panel-2);
+    border: 1px dashed var(--line);
+  }
+  .todo-item.st-done { background: var(--good-wash); border-style: solid; border-color: transparent; }
+  .todo-item.st-partial { background: var(--focus-wash); border-style: solid; border-color: transparent; }
+  /* 每个子项都显式指定行列：带确定行号的元素会被 Grid 优先安放，
+     只靠书写顺序会让色条和操作区抢占前面的列。 */
+  .todo-bar { grid-column: 1; grid-row: 1 / span 2; align-self: stretch; border-radius: 3px; background: var(--accent); }
+  .todo-item.st-done .todo-bar { background: var(--good); }
+  .todo-item.st-partial .todo-bar { background: var(--focus); }
+  .todo-time { grid-column: 2; grid-row: 1; font-family: var(--mono); font-size: 11.5px; color: var(--ink-mid); white-space: nowrap; }
+  .todo-title { grid-column: 3; grid-row: 1; font-weight: 500; overflow-wrap: anywhere; }
+  .todo-item.st-done .todo-title { color: var(--ink-dim); text-decoration: line-through; }
+  .todo-note { grid-column: 2 / span 2; grid-row: 2; font-size: 11.5px; color: var(--ink-dim); overflow-wrap: anywhere; }
+  .todo-act { grid-column: 4; grid-row: 1 / span 2; display: flex; align-items: center; gap: 6px; }
+
+  /* 三档完成情况，一次点击直接落位，不用循环切换 */
+  .seg { display: flex; gap: 2px; background: var(--ground); padding: 2px; border-radius: 999px; }
+  .seg button {
+    border: 0; background: none; cursor: pointer; border-radius: 999px;
+    width: 26px; height: 26px; line-height: 1; font-size: 13px;
+    color: var(--ink-dim); padding: 0;
+  }
+  .seg button[aria-pressed="true"] { background: var(--panel); color: var(--accent); box-shadow: var(--sh-1); }
+  .seg button[data-s="partial"][aria-pressed="true"] { color: var(--focus); }
+  .seg button[data-s="done"][aria-pressed="true"] { color: var(--good); }
+
+  .add-btn {
+    border: 1px dashed var(--line); background: none; color: var(--ink-mid);
+    border-radius: var(--r-ctl); padding: 9px; cursor: pointer; width: 100%;
+    font-size: 12.5px; transition: border-color .16s, color .16s;
+  }
+  .add-btn:hover { border-color: var(--accent); color: var(--accent); }
 
   /* ---------- phone ---------- */
   @media (max-width: 720px) {
@@ -475,6 +530,11 @@
     input[type="checkbox"] { width: 22px; height: 22px; }
     .field input, .field select { min-height: 44px; }
     .mcell { min-height: 72px; }
+    .seg button { width: 34px; height: 34px; font-size: 15px; }
+    .todo-item { padding: 12px; }
+    .dlg-ft { padding: 12px; }
+    .dlg-ft .btn { flex: 1 1 auto; }
+    .dlg-ft .spacer { display: none; }
     .today-item { padding: 12px 14px; gap: 12px; }
     .icon-btn { padding: 8px 10px; font-size: 15px; }
     .course { padding: 13px 14px; }
@@ -569,6 +629,9 @@ https://www.coursera.org/learn/..."></textarea>
     <section class="card" id="card-today">
       <div class="card-hd"><h2>今天</h2><span class="count mono" id="today-date"></span></div>
       <div class="today-list" id="today-list"></div>
+      <div style="padding: 0 10px 10px">
+        <button class="add-btn" id="btn-add-todo">＋ 写一条今天的安排</button>
+      </div>
     </section>
   </div>
 
@@ -682,9 +745,51 @@ https://www.coursera.org/learn/..."></textarea>
     <div class="day-list" id="day-list"></div>
   </div>
   <div class="dlg-ft">
+    <button class="btn" id="btn-day-add" type="button">＋ 添加安排</button>
     <span class="spacer"></span>
     <button class="btn" id="btn-day-close" type="button">关闭</button>
   </div>
+</dialog>
+
+<dialog id="dlg-todo">
+  <form method="dialog">
+    <div class="dlg-hd" id="dlg-todo-title">写一条安排</div>
+    <div class="dlg-bd">
+      <div class="field">
+        <label for="t-title">安排内容</label>
+        <input id="t-title" type="text" placeholder="例如：整理线代第 3 章笔记">
+      </div>
+      <div class="field">
+        <label for="t-date">日期</label>
+        <input id="t-date" type="date">
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="t-start">开始</label>
+          <input id="t-start" type="time" step="300">
+        </div>
+        <div class="field">
+          <label for="t-end">结束</label>
+          <input id="t-end" type="time" step="300">
+        </div>
+      </div>
+      <div class="field">
+        <label>完成情况</label>
+        <div class="seg" id="t-status" style="align-self: flex-start"></div>
+      </div>
+      <div class="field">
+        <label for="t-note">完成情况说明（做到哪、卡在哪，可留空）</label>
+        <input id="t-note" type="text" placeholder="可留空">
+      </div>
+      <p class="err" id="todo-err"></p>
+    </div>
+    <div class="dlg-ft">
+      <button class="btn" id="btn-todo-del" type="button">删除</button>
+      <span class="spacer"></span>
+      <button class="btn" value="cancel">取消</button>
+      <button class="btn btn-primary" id="btn-todo-save" type="button">保存</button>
+    </div>
+  </form>
 </dialog>
 
 <dialog id="dlg-export">
@@ -694,8 +799,8 @@ https://www.coursera.org/learn/..."></textarea>
     <textarea class="import" id="export-box" style="min-height:180px" readonly></textarea>
   </div>
   <div class="dlg-ft">
-    <button class="btn" id="btn-dl-json" type="button">下载 JSON 备份</button>
-    <button class="btn" id="btn-dl-ics" type="button">下载 .ics 日历</button>
+    <button class="btn" id="btn-dl-json" type="button">下载 JSON</button>
+    <button class="btn" id="btn-dl-ics" type="button">下载 .ics</button>
     <span class="spacer"></span>
     <button class="btn" id="btn-export-close" type="button">关闭</button>
   </div>
@@ -719,6 +824,11 @@ const LS_POMO = "course-planner-pomo";
 const POMO = { focus: 25, short: 5, long: 15, every: 4 };
 const MODE_LABEL = { focus: "专注", short: "短休", long: "长休" };
 
+/* 一次性安排的三档完成情况。绑在具体日期上，不像学习块那样按周重复。 */
+const STATUS = ["todo", "partial", "done"];
+const STATUS_LABEL = { todo: "未开始", partial: "部分完成", done: "已完成" };
+const STATUS_MARK  = { todo: "○", partial: "◑", done: "●" };
+
 const PLATFORMS = [
   [/bilibili\.com|b23\.tv/i,        "哔哩哔哩"],
   [/youtube\.com|youtu\.be/i,       "YouTube"],
@@ -735,7 +845,7 @@ const PLATFORMS = [
   [/ocw\.mit\.edu|mit\.edu/i,       "MIT OCW"],
 ];
 
-let state = { v: 1, courses: [], blocks: [], pomos: {}, updatedAt: 0 };
+let state = { v: 1, courses: [], blocks: [], todos: [], pomos: {}, updatedAt: 0 };
 let artifactApi = null, downloadsApi = null;
 let editingBlock = null, editingCourse = null, pickedColor = PALETTE[0];
 let view = "week";
@@ -787,7 +897,7 @@ function nameFromUrl(url) {
 /* ---------- state ---------- */
 
 function loadState() {
-  let embedded = { v: 1, courses: [], blocks: [], pomos: {}, updatedAt: 0 };
+  let embedded = { v: 1, courses: [], blocks: [], todos: [], pomos: {}, updatedAt: 0 };
   try { embedded = JSON.parse($("app-state").textContent) || embedded; } catch {}
   let local = null;
   try { local = JSON.parse(localStorage.getItem(LS_KEY) || "null"); } catch {}
@@ -801,6 +911,7 @@ function loadState() {
   }
   state.courses = state.courses || [];
   state.blocks = state.blocks || [];
+  state.todos = state.todos || [];
   state.pomos = state.pomos || {};
 }
 
@@ -874,6 +985,42 @@ function render() {
   renderPomoCourses();
 }
 
+/* 某天的一次性安排 */
+function todosOn(iso) {
+  return state.todos.filter(x => x.date === iso).sort((a, b) => a.start - b.start);
+}
+
+/* 校验一条安排。返回 null 表示通过，否则返回给用户看的原因。 */
+function validateTodo(title, start, end) {
+  if (!title || !title.trim()) return "写点内容吧。";
+  if (!Number.isFinite(start) || !Number.isFinite(end)) return "时间填写不完整。";
+  if (end <= start) return "结束时间要晚于开始时间。";
+  if (end - start > 16 * 60) return "单条安排不要超过 16 小时。";
+  return null;
+}
+
+/* 把当天的学习块和一次性安排合成一条时间线，按开始时间排序 */
+function agendaOn(date, iso) {
+  const items = [];
+  for (const b of blocksOn(date)) {
+    const c = state.courses.find(x => x.id === b.courseId);
+    items.push({
+      kind: "block", id: b.id, start: b.start, end: b.start + b.dur,
+      title: c ? c.title : "已删除的课程", note: b.note || "",
+      color: c ? c.color : "--c1", url: c ? c.url : "",
+      done: !!(b.doneOn && b.doneOn[iso]),
+    });
+  }
+  for (const x of todosOn(iso)) {
+    items.push({
+      kind: "todo", id: x.id, start: x.start, end: x.end,
+      title: x.title, note: x.note || "", status: x.status || "todo",
+      done: x.status === "done",
+    });
+  }
+  return items.sort((a, b) => a.start - b.start || (a.kind === "block" ? -1 : 1));
+}
+
 /* 某个日期上排的学习块（周计划按星期重复到每一天） */
 function blocksOn(date) {
   const i = dayIdx(date);
@@ -895,12 +1042,11 @@ function renderMonth() {
     d.setDate(start.getDate() + k);
     const iso = isoDate(d);
     const out = d.getMonth() !== m;
-    const items = blocksOn(d);
-    const shown = items.slice(0, 3).map(b => {
-      const c = state.courses.find(x => x.id === b.courseId);
-      return '<span class="mchip ' + (isDone(b, iso) ? "is-done" : "") + '" style="' + ccVars(c ? c.color : "--c1") + '">'
-        + hhmm(b.start).slice(0, 5) + " " + esc(c ? c.title : "已删除") + "</span>";
-    }).join("");
+    const items = agendaOn(d, iso);
+    const shown = items.slice(0, 3).map(it => it.kind === "todo"
+      ? '<span class="mchip mchip-todo st-' + it.status + '">' + hhmm(it.start) + " " + esc(it.title) + "</span>"
+      : '<span class="mchip ' + (it.done ? "is-done" : "") + '" style="' + ccVars(it.color) + '">'
+          + hhmm(it.start) + " " + esc(it.title) + "</span>").join("");
     const more = items.length > 3 ? '<span class="mmore">+' + (items.length - 3) + "</span>" : "";
     cells += '<button type="button" class="mcell ' + (out ? "is-out " : "") + (iso === todayIso ? "is-today" : "")
       + '" data-date="' + iso + '"><span class="mdate">' + d.getDate() + "</span>" + shown + more + "</button>";
@@ -908,20 +1054,26 @@ function renderMonth() {
   $("month-grid").innerHTML = cells;
 }
 
+let dayIso = null;
+
 function openDay(iso) {
+  dayIso = iso;
   const d = new Date(iso + "T12:00:00");
-  const items = blocksOn(d);
+  const items = agendaOn(d, iso);
   $("dlg-day-title").textContent = iso + " " + DAYS[dayIdx(d)];
-  $("day-list").innerHTML = items.length ? items.map(b => {
-    const c = state.courses.find(x => x.id === b.courseId);
-    return '<label class="today-item ' + (isDone(b, iso) ? "is-done" : "") + '" style="' + ccVars(c ? c.color : "--c1") + '">'
-      + '<input type="checkbox" data-daydone="' + b.id + '" data-iso="' + iso + '"' + (isDone(b, iso) ? " checked" : "") + ">"
-      + '<i class="t-dot"></i><span class="t-time mono">' + hhmm(b.start) + "</span>"
-      + '<span class="t-name">' + esc(c ? c.title : "已删除的课程") + (b.note ? ' <span style="color:var(--ink-dim)">' + esc(b.note) + "</span>" : "") + "</span>"
-      + (c && c.url ? '<a class="icon-btn" href="' + esc(c.url) + '" target="_blank" rel="noopener noreferrer">↗</a>' : "")
-      + "</label>";
-  }).join("") : '<div class="empty">这天没有安排。</div>';
-  $("dlg-day").showModal();
+  $("day-list").innerHTML = items.length
+    ? items.map(it => it.kind === "block" ? dayBlockRow(it, iso) : todoRow(it)).join("")
+    : '<div class="empty">这天没有安排。</div>';
+  if (!$("dlg-day").open) $("dlg-day").showModal();
+}
+
+function dayBlockRow(it, iso) {
+  return '<label class="today-item ' + (it.done ? "is-done" : "") + '" style="' + ccVars(it.color) + '">'
+    + '<input type="checkbox" data-daydone="' + it.id + '" data-iso="' + iso + '"' + (it.done ? " checked" : "") + ">"
+    + '<i class="t-dot"></i><span class="t-time mono">' + hhmm(it.start) + "</span>"
+    + '<span class="t-name">' + esc(it.title) + (it.note ? ' <span style="color:var(--ink-dim)">' + esc(it.note) + "</span>" : "") + "</span>"
+    + (it.url ? '<a class="icon-btn" href="' + esc(it.url) + '" target="_blank" rel="noopener noreferrer">↗</a>' : "")
+    + "</label>";
 }
 
 function setView(v) {
@@ -1069,6 +1221,13 @@ function renderStats() {
   const dates = weekDates();
   let total = 0, done = 0;
   state.blocks.forEach(b => { total++; if (b.doneOn && b.doneOn[dates[b.day]]) done++; });
+  /* 本周内的一次性安排一并计入，否则完成率不反映真实情况 */
+  state.todos.forEach(x => {
+    if (!dates.includes(x.date)) return;
+    total++;
+    if (x.status === "done") done++;
+    else if (x.status === "partial") done += 0.5;
+  });
   $("s-courses").textContent = state.courses.length;
   $("s-hours").textContent = (mins / 60).toFixed(1);
   $("s-rate").textContent = total ? Math.round(done / total * 100) + "%" : "0%";
@@ -1117,7 +1276,17 @@ function renderGrid() {
 
   const dates = weekDates();
   const cols = DAYS.map((_, i) => {
-    const items = state.blocks.filter(b => b.day === i).map(b => {
+    /* 一次性安排绑定具体日期，只画在本周对应的那一格上 */
+    const dayTodos = state.todos.filter(x => x.date === dates[i]).map(x => {
+      const top = (x.start - HOUR0 * 60) / 60 * HOUR_H;
+      const hh = Math.max(20, (x.end - x.start) / 60 * HOUR_H - 2);
+      return '<div class="blk blk-todo st-' + (x.status || "todo") + '" data-todo-blk="' + x.id + '"'
+        + ' style="top:' + top + 'px;height:' + hh + 'px">'
+        + "<b>" + esc(x.title) + "</b>"
+        + '<span class="blk-time mono">' + hhmm(x.start) + "-" + hhmm(x.end) + "</span>"
+        + "</div>";
+    }).join("");
+    const items = dayTodos + state.blocks.filter(b => b.day === i).map(b => {
       const c = state.courses.find(x => x.id === b.courseId);
       const top = (b.start - HOUR0 * 60) / 60 * HOUR_H;
       const hh = Math.max(20, b.dur / 60 * HOUR_H - 2);
@@ -1136,26 +1305,48 @@ function renderGrid() {
 }
 
 function renderToday() {
-  const i = dayIdx(new Date());
-  const date = isoDate(new Date());
+  const now = new Date();
+  const date = isoDate(now);
   $("today-date").textContent = date;
-  const items = state.blocks.filter(b => b.day === i).sort((a, b) => a.start - b.start);
+  const items = agendaOn(now, date);
   const box = $("today-list");
-  if (!items.length) {
-    box.innerHTML = '<div class="empty">今天没有安排。</div>';
-    return;
-  }
-  box.innerHTML = items.map(b => {
-    const c = state.courses.find(x => x.id === b.courseId);
-    const done = !!(b.doneOn && b.doneOn[date]);
-    return '<label class="today-item ' + (done ? "is-done" : "") + '" style="' + ccVars(c ? c.color : "--c1") + '">'
-      + '<input type="checkbox" data-done="' + b.id + '"' + (done ? " checked" : "") + '>'
-      + '<i class="t-dot"></i>'
-      + '<span class="t-time mono">' + hhmm(b.start) + '</span>'
-      + '<span class="t-name">' + esc(c ? c.title : "已删除的课程") + (b.note ? ' <span style="color:var(--ink-dim)">' + esc(b.note) + '</span>' : '') + '</span>'
-      + (c && c.url ? '<a class="icon-btn" href="' + esc(c.url) + '" target="_blank" rel="noopener noreferrer" title="打开课程">↗</a>' : '')
-    + '</label>';
-  }).join("");
+  box.innerHTML = items.length
+    ? items.map(it => it.kind === "block" ? blockRow(it, date) : todoRow(it)).join("")
+    : '<div class="empty">今天还没有安排。<br>可以在下面写一条。</div>';
+}
+
+/* 课程学习块：一个勾选框就够，它只有做没做两种状态 */
+function blockRow(it, date) {
+  return '<label class="today-item ' + (it.done ? "is-done" : "") + '" style="' + ccVars(it.color) + '">'
+    + '<input type="checkbox" data-done="' + it.id + '"' + (it.done ? " checked" : "") + ">"
+    + '<i class="t-dot"></i>'
+    + '<span class="t-time mono">' + hhmm(it.start) + "</span>"
+    + '<span class="t-name">' + esc(it.title) + (it.note ? ' <span style="color:var(--ink-dim)">' + esc(it.note) + "</span>" : "") + "</span>"
+    + (it.url ? '<a class="icon-btn" href="' + esc(it.url) + '" target="_blank" rel="noopener noreferrer" title="打开课程">↗</a>' : "")
+    + "</label>";
+}
+
+/* 一次性安排：三档完成情况，外加一行完成说明 */
+function todoRow(it) {
+  return '<div class="todo-item st-' + it.status + '" data-todo="' + it.id + '">'
+    + '<i class="todo-bar"></i>'
+    + '<span class="todo-time">' + hhmm(it.start) + "-" + hhmm(it.end) + "</span>"
+    + '<span class="todo-title">' + esc(it.title) + "</span>"
+    + '<span class="todo-act">'
+      + segControl(it.id, it.status)
+      + '<button class="icon-btn" data-edit-todo="' + it.id + '" title="编辑">✎</button>'
+    + "</span>"
+    + (it.note ? '<span class="todo-note">' + esc(it.note) + "</span>" : "")
+    + "</div>";
+}
+
+function segControl(id, status) {
+  return '<span class="seg" role="group" aria-label="完成情况">'
+    + STATUS.map(s =>
+        '<button type="button" data-set-status="' + id + '" data-s="' + s + '"'
+        + ' aria-pressed="' + (s === status) + '" title="' + STATUS_LABEL[s] + '"'
+        + ' aria-label="' + STATUS_LABEL[s] + '">' + STATUS_MARK[s] + "</button>").join("")
+    + "</span>";
 }
 
 function renderCourseOptions() {
@@ -1232,6 +1423,60 @@ function saveCourse() {
   touch();
 }
 
+/* ---------- 一次性安排的增删改 ---------- */
+
+let editingTodo = null, todoStatus = "todo";
+
+function paintSeg() {
+  $("t-status").innerHTML = STATUS.map(s =>
+    '<button type="button" data-pick="' + s + '" aria-pressed="' + (s === todoStatus) + '"'
+    + ' data-s="' + s + '" title="' + STATUS_LABEL[s] + '" aria-label="' + STATUS_LABEL[s] + '">'
+    + STATUS_MARK[s] + "</button>").join("");
+}
+
+function openTodo(todo, presetIso) {
+  editingTodo = todo;
+  todoStatus = todo ? (todo.status || "todo") : "todo";
+  $("dlg-todo-title").textContent = todo ? "编辑安排" : "写一条安排";
+  $("btn-todo-del").style.display = todo ? "" : "none";
+  $("todo-err").textContent = "";
+  $("t-title").value = todo ? todo.title : "";
+  $("t-date").value = todo ? todo.date : (presetIso || isoDate(new Date()));
+  const now = new Date();
+  const nextHalf = Math.ceil((now.getHours() * 60 + now.getMinutes()) / 30) * 30;
+  $("t-start").value = hhmm(todo ? todo.start : Math.min(nextHalf, 23 * 60));
+  $("t-end").value = hhmm(todo ? todo.end : Math.min(nextHalf + 60, 24 * 60 - 5));
+  $("t-note").value = todo ? (todo.note || "") : "";
+  paintSeg();
+  $("dlg-todo").showModal();
+}
+
+function saveTodo() {
+  const title = $("t-title").value.trim();
+  const date = $("t-date").value;
+  const start = toMin($("t-start").value || "");
+  const end = toMin($("t-end").value || "");
+  const bad = validateTodo(title, start, end) || (date ? null : "选一个日期。");
+  if (bad) { $("todo-err").textContent = bad; return; }
+
+  if (editingTodo) {
+    Object.assign(editingTodo, { title, date, start, end, status: todoStatus, note: $("t-note").value.trim() });
+  } else {
+    state.todos.push({ id: uid(), title, date, start, end, status: todoStatus, note: $("t-note").value.trim() });
+  }
+  $("dlg-todo").close();
+  touch();
+  if (dayIso && $("dlg-day").open) openDay(dayIso);
+}
+
+function setTodoStatus(id, s) {
+  const x = state.todos.find(v => v.id === id);
+  if (!x || !STATUS.includes(s)) return;
+  x.status = s;
+  touch();
+  if (dayIso && $("dlg-day").open) openDay(dayIso);
+}
+
 /* ---------- export ---------- */
 
 function icsBody() {
@@ -1284,6 +1529,8 @@ function wire() {
   });
 
   $("grid-bd").addEventListener("click", (e) => {
+    const tblk = e.target.closest("[data-todo-blk]");
+    if (tblk) { openTodo(state.todos.find(x => x.id === tblk.dataset.todoBlk)); return; }
     const blk = e.target.closest("[data-blk]");
     if (blk) { openBlock(state.blocks.find(b => b.id === blk.dataset.blk)); return; }
     const day = e.target.closest("[data-day]");
@@ -1377,7 +1624,33 @@ function wire() {
     cb.closest(".today-item").classList.toggle("is-done", cb.checked);
     touch();
   });
-  $("btn-day-close").addEventListener("click", () => $("dlg-day").close());
+  $("btn-day-close").addEventListener("click", () => { $("dlg-day").close(); dayIso = null; });
+  $("btn-day-add").addEventListener("click", () => openTodo(null, dayIso));
+  $("btn-add-todo").addEventListener("click", () => openTodo(null, isoDate(new Date())));
+
+  /* 今日面板与日期弹窗共用同一套安排交互 */
+  for (const host of ["today-list", "day-list"]) {
+    $(host).addEventListener("click", (e) => {
+      const set = e.target.closest("[data-set-status]");
+      if (set) { setTodoStatus(set.dataset.setStatus, set.dataset.s); return; }
+      const ed = e.target.closest("[data-edit-todo]");
+      if (ed) { openTodo(state.todos.find(x => x.id === ed.dataset.editTodo)); }
+    });
+  }
+
+  $("t-status").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-pick]");
+    if (!b) return;
+    todoStatus = b.dataset.pick;
+    paintSeg();
+  });
+  $("btn-todo-save").addEventListener("click", saveTodo);
+  $("btn-todo-del").addEventListener("click", () => {
+    if (editingTodo) state.todos = state.todos.filter(x => x.id !== editingTodo.id);
+    $("dlg-todo").close();
+    touch();
+    if (dayIso && $("dlg-day").open) openDay(dayIso);
+  });
 
   $("pomo-start").addEventListener("click", pomoToggle);
   $("pomo-reset").addEventListener("click", pomoReset);
@@ -1427,5 +1700,15 @@ if (window.claude && claude.use) {
 }
 </script>
 
+<script>
+/* https 与 localhost 都是安全上下文，可注册；file:// 打开时浏览器不允许，静默跳过 */
+const secure = location.protocol === "https:"
+  || location.hostname === "localhost" || location.hostname === "127.0.0.1";
+if ("serviceWorker" in navigator && secure) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./sw.js").catch(() => {});
+  });
+}
+</script>
 </body>
 </html>
