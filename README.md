@@ -29,22 +29,40 @@ Note that directory names and skill `name:` fields differ for several skills —
 `name:` in the frontmatter is what you invoke. `skills/llms.txt` carries upstream's
 one-line summary of each.
 
+## Two copies, on purpose
+
+| Path | Purpose | Directory names |
+| --- | --- | --- |
+| `skills/` | The source of truth, and the plugin-marketplace layout. | Upstream's (`brutalist-skill/`, …) |
+| `.claude/skills/` | Auto-loaded in any Claude Code session opened in this repo. | Each skill's `name:` field (`industrial-brutalist-ui/`, …) |
+
+`.claude/skills/` is generated. After editing anything under `skills/`, run:
+
+```
+./scripts/sync-local-skills.sh
+```
+
 ## Using them
 
-As a plugin marketplace (the `.claude-plugin/` manifests are vendored too):
+Working inside this repo: nothing to do — the skills in `.claude/skills/` load
+automatically.
+
+From any other project, install this repo as a plugin marketplace (requires the
+content to be on the default branch):
 
 ```
 /plugin marketplace add Echo844883/skills
 /plugin install taste-skill@taste-skill
 ```
 
-Or copy an individual skill directory into `.claude/skills/` in a project, or
-`~/.claude/skills/` for every project.
+For every project on a machine, copy the skill directories you want into
+`~/.claude/skills/`.
 
-## Updating
+## Updating from upstream
 
 Re-copy `skills/`, `research/`, `.claude-plugin/`, `LICENSE`, and `CHANGELOG.md`
-from a fresh clone of upstream, and bump the commit noted at the top of this file.
+from a fresh clone of upstream, run `./scripts/sync-local-skills.sh`, and bump the
+commit noted at the top of this file.
 
 ## License
 
