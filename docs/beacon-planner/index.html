@@ -1,0 +1,1036 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#17796B" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0E1614" media="(prefers-color-scheme: dark)">
+<meta name="format-detection" content="telephone=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="信标">
+<title>信标提醒台</title>
+<!--
+  manifest 和图标是独立文件，只在托管访问时被浏览器请求，用来支持「安装到主屏幕」
+  和离线缓存。单文件本地打开时这两行请求不到东西会静默失败，不影响页面本身。
+-->
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>:root{color-scheme:light dark}html{-webkit-text-size-adjust:100%}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<style>
+  /* 与课程排程台同源的设计系统：松石绿为骨，杏橙为专注/触发状态，
+     中性色带一点绿灰，不用纯灰。浅色为主，深色随系统自动切换。 */
+  :root {
+    --ground:    #EFF4F2;
+    --panel:     #FFFFFF;
+    --panel-2:   #F5F9F7;
+    --line:      #DBE6E1;
+    --line-soft: #EAF1ED;
+    --ink:       #10201C;
+    --ink-mid:   #44605A;
+    --ink-dim:   #7B948D;
+
+    --accent:     #17796B;
+    --accent-2:   #0F5C51;
+    --accent-in:  #FFFFFF;
+    --accent-wash:#DBEFE9;
+
+    --focus:      #D9713A;
+    --focus-in:   #FFFFFF;
+    --focus-wash: #FCEADD;
+
+    --good:      #2E8B57;
+    --good-wash: #DEF2E6;
+    --warn:      #C4553A;
+    --warn-wash: #FAE6E0;
+
+    --c1: #2C7BE5;  --c1w: #DEEBFB;
+    --c2: #0E9488;  --c2w: #D6EFEC;
+    --c3: #D9713A;  --c3w: #FBE7DA;
+    --c4: #7A5AC7;  --c4w: #E7E1F7;
+    --c5: #C7417B;  --c5w: #FADEEA;
+    --c6: #4E9A2F;  --c6w: #E2F2D9;
+
+    --face: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Source Han Sans SC", "Noto Sans SC", "Microsoft YaHei", system-ui, sans-serif;
+    --mono: ui-monospace, "SFMono-Regular", Menlo, "PingFang SC", monospace;
+
+    --r-card: 14px;
+    --r-ctl:  9px;
+    --r-chip: 6px;
+
+    --sh-1: 0 1px 2px rgba(16, 32, 28, .05), 0 2px 8px rgba(16, 32, 28, .04);
+    --sh-2: 0 2px 6px rgba(16, 32, 28, .07), 0 10px 24px rgba(16, 32, 28, .07);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:    #0E1614;
+      --panel:     #15211D;
+      --panel-2:   #1C2A25;
+      --line:      #27362F;
+      --line-soft: #1E2C27;
+      --ink:       #E5EFEB;
+      --ink-mid:   #A5BDB5;
+      --ink-dim:   #72908A;
+
+      --accent:     #46BFA9;
+      --accent-2:   #64D3BE;
+      --accent-in:  #08201C;
+      --accent-wash:#123029;
+
+      --focus:      #EE9C63;
+      --focus-in:   #2A1508;
+      --focus-wash: #2E1E13;
+
+      --good:      #5CC48B;
+      --good-wash: #122C1F;
+      --warn:      #E4886B;
+      --warn-wash: #2E1A14;
+
+      --c1: #62A7F5;  --c1w: #14263A;
+      --c2: #3FC0B2;  --c2w: #0F2E2B;
+      --c3: #EE9C63;  --c3w: #322115;
+      --c4: #A98BE8;  --c4w: #241D38;
+      --c5: #E97AAC;  --c5w: #331825;
+      --c6: #86C95F;  --c6w: #1B2C14;
+
+      --sh-1: 0 1px 2px rgba(0, 0, 0, .3), 0 2px 8px rgba(0, 0, 0, .22);
+      --sh-2: 0 2px 6px rgba(0, 0, 0, .35), 0 10px 24px rgba(0, 0, 0, .3);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground:    #0E1614;
+    --panel:     #15211D;
+    --panel-2:   #1C2A25;
+    --line:      #27362F;
+    --line-soft: #1E2C27;
+    --ink:       #E5EFEB;
+    --ink-mid:   #A5BDB5;
+    --ink-dim:   #72908A;
+
+    --accent:     #46BFA9;
+    --accent-2:   #64D3BE;
+    --accent-in:  #08201C;
+    --accent-wash:#123029;
+
+    --focus:      #EE9C63;
+    --focus-in:   #2A1508;
+    --focus-wash: #2E1E13;
+
+    --good:      #5CC48B;
+    --good-wash: #122C1F;
+    --warn:      #E4886B;
+    --warn-wash: #2E1A14;
+
+    --c1: #62A7F5;  --c1w: #14263A;
+    --c2: #3FC0B2;  --c2w: #0F2E2B;
+    --c3: #EE9C63;  --c3w: #322115;
+    --c4: #A98BE8;  --c4w: #241D38;
+    --c5: #E97AAC;  --c5w: #331825;
+    --c6: #86C95F;  --c6w: #1B2C14;
+
+    --sh-1: 0 1px 2px rgba(0, 0, 0, .3), 0 2px 8px rgba(0, 0, 0, .22);
+    --sh-2: 0 2px 6px rgba(0, 0, 0, .35), 0 10px 24px rgba(0, 0, 0, .3);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--face);
+    font-size: 14px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  button, input, select, textarea { font: inherit; color: inherit; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+  /* ---------- shell ---------- */
+
+  .top {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 12px 18px;
+    padding: 13px 20px;
+    background: linear-gradient(104deg, var(--panel) 48%, var(--accent-wash));
+    border-bottom: 1px solid var(--line);
+    position: sticky; top: 0; z-index: 20;
+  }
+  .brand { font-weight: 650; font-size: 15.5px; letter-spacing: .01em; margin-right: 2px; }
+  .brand::before {
+    content: ""; display: inline-block; vertical-align: -1px;
+    width: 9px; height: 9px; margin-right: 8px; border-radius: 3px;
+    background: linear-gradient(140deg, var(--accent), var(--focus));
+  }
+  .stats { display: flex; gap: 8px; flex-wrap: wrap; }
+  .stat {
+    display: flex; align-items: baseline; gap: 6px;
+    padding: 4px 11px; border-radius: 999px; background: var(--panel);
+    box-shadow: var(--sh-1);
+  }
+  .stat b { font-family: var(--mono); font-size: 16px; font-weight: 650; font-variant-numeric: tabular-nums; }
+  .stat span { font-size: 11.5px; color: var(--ink-dim); }
+  .stat.s-a b { color: var(--accent); }
+  .stat.s-b b { color: var(--c1); }
+  .stat.s-warn b { color: var(--warn); }
+  .top-actions { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+
+  .btn {
+    border: 1px solid var(--line);
+    background: var(--panel);
+    color: var(--ink);
+    padding: 8px 14px;
+    border-radius: var(--r-ctl);
+    cursor: pointer;
+    box-shadow: var(--sh-1);
+    white-space: nowrap;
+    transition: background .16s, border-color .16s, transform .12s, box-shadow .16s;
+  }
+  .btn:hover { background: var(--panel-2); border-color: var(--accent); color: var(--accent); }
+  .btn:active { transform: translateY(1px); box-shadow: none; }
+  .btn-primary {
+    background: linear-gradient(160deg, var(--accent), var(--accent-2));
+    border-color: transparent; color: var(--accent-in); font-weight: 550;
+  }
+  .btn-primary:hover { color: var(--accent-in); filter: brightness(1.09); border-color: transparent; }
+  .btn-warn { color: var(--warn); }
+  .btn-warn:hover { border-color: var(--warn); color: var(--warn); background: var(--warn-wash); }
+  .btn-sm { padding: 5px 11px; font-size: 12.5px; }
+  .btn-block { width: 100%; }
+  .btn[disabled] { opacity: .5; cursor: not-allowed; }
+
+  .wrap {
+    display: grid;
+    grid-template-columns: 316px minmax(0, 1fr);
+    gap: 16px;
+    padding: 16px 20px 40px;
+    max-width: 1200px;
+    margin-inline: auto;
+    align-items: start;
+  }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--r-card);
+    box-shadow: var(--sh-1);
+    overflow: hidden;
+  }
+  .card-hd {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 15px;
+    border-bottom: 1px solid var(--line-soft);
+    background: var(--panel-2);
+  }
+  .card-hd h2 { margin: 0; font-size: 13px; font-weight: 650; letter-spacing: .03em; }
+  .card-hd .count { font-family: var(--mono); font-size: 11.5px; color: var(--ink-dim); margin-left: auto; }
+  .card-bd { padding: 14px; }
+
+  .rail { display: flex; flex-direction: column; gap: 16px; position: sticky; top: 74px; }
+
+  .hint { font-size: 11.5px; color: var(--ink-dim); line-height: 1.7; margin: 0; }
+  .hint strong { color: var(--ink-mid); font-weight: 600; }
+</style>
+<style>
+  /* ---------- 授权行 ---------- */
+  .perm-list { display: flex; flex-direction: column; }
+  .perm-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-areas: "label pill" "desc desc" "btn btn";
+    gap: 3px 8px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .perm-row:last-child { border-bottom: 0; }
+  .perm-label { grid-area: label; font-weight: 600; font-size: 13px; align-self: center; }
+  .perm-desc { grid-area: desc; font-size: 11.5px; color: var(--ink-dim); line-height: 1.6; }
+  .perm-row .btn { grid-area: btn; margin-top: 6px; }
+
+  .pill {
+    grid-area: pill;
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 11px; font-weight: 600; letter-spacing: .02em;
+    padding: 3px 9px; border-radius: 999px;
+    background: var(--panel-2); color: var(--ink-dim);
+    white-space: nowrap; align-self: center;
+  }
+  .pill::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex: none; }
+  .pill.ok   { color: var(--accent); background: var(--accent-wash); }
+  .pill.bad  { color: var(--warn);   background: var(--warn-wash); }
+  .pill.hot  { color: var(--focus);  background: var(--focus-wash); }
+
+  /* ---------- 新建表单 ---------- */
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  .field > label { font-size: 11.5px; color: var(--ink-mid); letter-spacing: .04em; }
+  .field input, .field textarea, .field select {
+    background: var(--panel-2); border: 1px solid var(--line);
+    border-radius: var(--r-ctl); padding: 9px 11px; width: 100%;
+    transition: border-color .16s;
+    font-family: var(--face);
+  }
+  .field input[type="time"] { font-family: var(--mono); font-size: 20px; font-variant-numeric: tabular-nums; }
+  .field textarea { resize: vertical; min-height: 64px; line-height: 1.5; font-size: 13.5px; }
+  .field input:focus, .field textarea:focus, .field select:focus { border-color: var(--accent); }
+
+  .tabs { display: flex; gap: 3px; background: var(--ground); padding: 3px; border-radius: 999px; }
+  .tab {
+    flex: 1;
+    border: 0; background: none; color: var(--ink-mid);
+    padding: 7px 10px; border-radius: 999px; cursor: pointer; font-size: 12.5px; font-weight: 600;
+    transition: background .16s, color .16s;
+  }
+  .tab[aria-selected="true"] { background: var(--panel); color: var(--accent); box-shadow: var(--sh-1); }
+
+  .days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
+  .day {
+    height: 32px; border-radius: var(--r-chip); border: 1px solid var(--line);
+    background: var(--panel-2); color: var(--ink-dim); font-size: 12.5px; font-weight: 600;
+    cursor: pointer; transition: background .16s, color .16s, border-color .16s;
+  }
+  .day[aria-pressed="true"] { background: var(--accent-wash); border-color: var(--accent); color: var(--accent); }
+
+  .preview {
+    font-size: 12px; color: var(--ink-mid); line-height: 1.6;
+    background: var(--panel-2); border-radius: var(--r-ctl); padding: 9px 11px;
+  }
+  .preview.warn { color: var(--warn); background: var(--warn-wash); }
+
+  /* ---------- 队列 ---------- */
+  .list { display: flex; flex-direction: column; }
+  .row-item {
+    display: grid;
+    grid-template-columns: 4px 64px 1fr auto;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 15px;
+    border-bottom: 1px solid var(--line-soft);
+    transition: background .12s;
+  }
+  .row-item:last-child { border-bottom: 0; }
+  .row-item:hover { background: var(--panel-2); }
+  .row-item.off { opacity: .5; }
+  .row-bar { align-self: stretch; border-radius: 3px; background: var(--cc); }
+  .row-item.off .row-bar { background: var(--line); }
+  .row-time { font-family: var(--mono); font-size: 19px; font-weight: 650; color: var(--ink); white-space: nowrap; }
+  .row-body { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+  .row-msg { overflow-wrap: anywhere; font-size: 13.5px; }
+  .row-meta { display: flex; gap: 8px; font-size: 11.5px; color: var(--ink-dim); flex-wrap: wrap; }
+  .row-meta .cd { font-family: var(--mono); color: var(--ink-mid); }
+  .row-acts { display: flex; gap: 4px; align-items: center; }
+  .icon-btn {
+    border: 1px solid var(--line); background: var(--panel); color: var(--ink-dim);
+    width: 30px; height: 30px; border-radius: var(--r-chip);
+    display: grid; place-items: center; cursor: pointer; font-size: 14px;
+    transition: background .16s, color .16s, border-color .16s;
+  }
+  .icon-btn:hover { background: var(--panel-2); color: var(--ink); }
+  .icon-btn.on { color: var(--accent); border-color: var(--accent); background: var(--accent-wash); }
+  .icon-btn.del:hover { color: var(--warn); border-color: var(--warn); background: var(--warn-wash); }
+
+  .empty { padding: 30px 16px; text-align: center; color: var(--ink-dim); font-size: 12.5px; line-height: 1.8; }
+
+  /* ---------- 对话框 ---------- */
+  dialog {
+    border: 1px solid var(--line); border-radius: var(--r-card);
+    box-shadow: var(--sh-2);
+    background: var(--panel); color: var(--ink);
+    padding: 0; width: min(440px, calc(100vw - 32px));
+  }
+  dialog::backdrop { background: rgba(10, 12, 16, .5); }
+  .dlg-hd { padding: 13px 16px; border-bottom: 1px solid var(--line-soft); font-weight: 600; font-size: 14px; }
+  .dlg-bd { padding: 16px; display: flex; flex-direction: column; gap: 13px; }
+  .dlg-ft {
+    padding: 12px 16px; border-top: 1px solid var(--line-soft);
+    display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+    background: var(--panel-2);
+  }
+  .dlg-ft .btn { flex: 1 1 auto; }
+
+  /* 响铃对话框：更醒目一点，时刻用杏橙 */
+  #dlg-ring { width: min(420px, calc(100vw - 32px)); text-align: center; }
+  #dlg-ring .dlg-hd { text-align: left; }
+  #dlg-ring .dlg-bd { align-items: center; padding: 26px 20px 6px; }
+  .ring-time {
+    font-family: var(--mono); font-size: 52px; font-weight: 700;
+    color: var(--focus); letter-spacing: -.02em; margin: 0;
+  }
+  .ring-msg { font-size: 16px; line-height: 1.6; margin: 0; text-wrap: balance; overflow-wrap: anywhere; }
+
+  .toast {
+    position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%);
+    background: var(--ink); color: var(--ground);
+    padding: 11px 18px; border-radius: 999px; font-size: 13px; box-shadow: var(--sh-2);
+    z-index: 100; opacity: 0; pointer-events: none; transition: opacity .2s;
+  }
+  .toast.show { opacity: 1; }
+
+  @media (max-width: 1080px) {
+    .wrap { grid-template-columns: 1fr; }
+    .rail { position: static; }
+  }
+  @media (max-width: 720px) {
+    body { font-size: 15px; }
+    .top { padding: 10px 12px; gap: 8px 14px; }
+    .brand { font-size: 14px; width: 100%; }
+    .stats { gap: 10px; }
+    .top-actions { margin-left: 0; width: 100%; }
+    .top-actions .btn { flex: 1; }
+    .wrap { padding: 12px; gap: 12px; }
+    .rail { display: contents; }
+    #card-perm { order: 1; }
+    #card-new  { order: 2; }
+    #card-queue { order: 3; }
+    #card-about { order: 4; }
+
+    .btn { min-height: 44px; padding: 10px 14px; }
+    .btn-sm { min-height: 40px; }
+    .tab { min-height: 40px; }
+    .field input, .field textarea, .field select { min-height: 44px; }
+    .day { height: 38px; }
+    .row-item { grid-template-columns: 4px 58px 1fr auto; padding: 12px; gap: 10px; }
+    .icon-btn { width: 34px; height: 34px; font-size: 15px; }
+    .dlg-ft { padding: 12px; }
+    .dlg-ft .btn { flex: 1 1 auto; }
+    .ring-time { font-size: 44px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+  }
+</style>
+
+<header class="top">
+  <div class="brand">信标提醒台</div>
+  <div class="stats">
+    <div class="stat s-a"><b id="s-armed" class="mono">0</b><span>已武装</span></div>
+    <div class="stat s-b"><b id="s-next" class="mono">--:--</b><span>下一次</span></div>
+    <div class="stat" id="s-perm-wrap"><b id="s-perm" class="mono">未授权</b><span>通知权限</span></div>
+  </div>
+  <div class="top-actions">
+    <button class="btn btn-sm" id="btn-test">发测试通知</button>
+    <button class="btn btn-sm btn-warn" id="btn-clear">清空队列</button>
+    <button class="btn btn-sm btn-primary" id="btn-new">＋ 新建提醒</button>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="rail">
+
+    <section class="card" id="card-perm">
+      <div class="card-hd"><h2>授权</h2></div>
+      <div class="perm-list">
+        <div class="perm-row">
+          <span class="perm-label">系统通知</span>
+          <span class="pill" id="pill-notify">未授权</span>
+          <p class="perm-desc">允许后，时间一到会弹出系统通知，锁屏也能看到。</p>
+          <button class="btn btn-sm" id="btn-notify">请求通知权限</button>
+        </div>
+        <div class="perm-row">
+          <span class="perm-label">声音与振动</span>
+          <span class="pill" id="pill-sound">未启用</span>
+          <p class="perm-desc">手机浏览器要求先有一次点击才允许网页发声，点一次即可试听。</p>
+          <button class="btn btn-sm" id="btn-sound">试听提示音</button>
+        </div>
+        <div class="perm-row">
+          <span class="perm-label">保持屏幕唤醒</span>
+          <span class="pill" id="pill-wake">未启用</span>
+          <p class="perm-desc">有待命提醒时阻止息屏。可选，部分浏览器不支持。</p>
+          <button class="btn btn-sm" id="btn-wake">开启屏幕常亮</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" id="card-about">
+      <div class="card-hd"><h2>说明</h2></div>
+      <div class="card-bd" style="padding-top:11px">
+        <p class="hint">
+          <strong>请先读这一段。</strong>网页闹钟靠这个页面自己计时，页面被完全关掉就不会响，
+          留在前台或后台标签页里别划掉。iPhone 需要先「添加到主屏幕」，从主屏图标打开才能收到
+          系统通知。数据只存本机浏览器（localStorage），不上传。重要的事情，请同时设一个系统
+          自带闹钟。
+        </p>
+      </div>
+    </section>
+
+  </div>
+
+  <section class="card" id="card-queue">
+    <div class="card-hd">
+      <h2>待命队列</h2>
+      <span class="count mono" id="q-count">0</span>
+    </div>
+    <div class="list" id="list"></div>
+    <div class="empty" id="empty">队列是空的。点右上角「＋ 新建提醒」，它就会出现在这里。</div>
+  </section>
+
+</div>
+
+<!-- 新建提醒 -->
+<dialog id="dlg-new">
+  <div class="dlg-hd">新建提醒</div>
+  <div class="dlg-bd">
+    <div class="field">
+      <label for="f-time">时刻</label>
+      <input type="time" id="f-time" step="60">
+    </div>
+    <div class="field">
+      <label for="f-msg">提醒内容</label>
+      <textarea id="f-msg" maxlength="200" placeholder="例：起来喝水，然后写完那份周报"></textarea>
+    </div>
+    <div class="field">
+      <label>重复</label>
+      <div class="tabs" id="f-mode" role="tablist" aria-label="重复方式">
+        <button type="button" role="tab" data-mode="once"  aria-selected="true">仅一次</button>
+        <button type="button" role="tab" data-mode="daily" aria-selected="false">每天</button>
+        <button type="button" role="tab" data-mode="week"  aria-selected="false">按星期</button>
+      </div>
+    </div>
+    <div class="field" id="wrap-date">
+      <label for="f-date">日期</label>
+      <input type="date" id="f-date">
+    </div>
+    <div class="field" id="wrap-days" hidden>
+      <label>星期</label>
+      <div class="days" id="f-days" role="group" aria-label="重复的星期"></div>
+    </div>
+    <p class="preview" id="preview">下一次触发：——</p>
+  </div>
+  <div class="dlg-ft">
+    <button class="btn" id="f-cancel" formmethod="dialog">取消</button>
+    <button class="btn btn-primary" id="f-save">保存并武装</button>
+  </div>
+</dialog>
+
+<!-- 响铃 -->
+<dialog id="dlg-ring">
+  <div class="dlg-hd" id="ring-eyebrow">信标触发</div>
+  <div class="dlg-bd">
+    <p class="ring-time mono" id="ring-time">--:--</p>
+    <p class="ring-msg" id="ring-msg">时间到了</p>
+  </div>
+  <div class="dlg-ft">
+    <button class="btn" id="ring-snooze">稍后 10 分钟</button>
+    <button class="btn btn-primary" id="ring-stop">我知道了</button>
+  </div>
+</dialog>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function () {
+  "use strict";
+
+  var KEY = "beacon.reminders.v1";
+  var $ = function (id) { return document.getElementById(id); };
+  var WEEK = ["日", "一", "二", "三", "四", "五", "六"];
+  var CC = ["c1", "c2", "c3", "c4", "c5", "c6"];
+
+  function pad2(n) { return String(n).padStart(2, "0"); }
+  function ymd(d) { return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate()); }
+  function hm(ts) { var d = new Date(ts); return pad2(d.getHours()) + ":" + pad2(d.getMinutes()); }
+
+  function atOffset(from, days, time) {
+    var d = new Date(from);
+    d.setDate(d.getDate() + days);
+    var p = time.split(":");
+    d.setHours(Number(p[0]), Number(p[1]), 0, 0);
+    return d.getTime();
+  }
+
+  function computeDue(item, from) {
+    if (item.mode === "once") {
+      var p = item.date.split("-"), t = item.time.split(":");
+      return new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]),
+                      Number(t[0]), Number(t[1]), 0, 0).getTime();
+    }
+    if (item.mode === "daily") {
+      var d0 = atOffset(from, 0, item.time);
+      return d0 > from ? d0 : atOffset(from, 1, item.time);
+    }
+    var days = (item.days && item.days.length) ? item.days : [0, 1, 2, 3, 4, 5, 6];
+    for (var i = 0; i < 8; i++) {
+      var ts = atOffset(from, i, item.time);
+      if (ts > from && days.indexOf(new Date(ts).getDay()) !== -1) return ts;
+    }
+    return atOffset(from, 1, item.time);
+  }
+
+  function repeatText(item) {
+    if (item.mode === "once") return item.date;
+    if (item.mode === "daily") return "每天";
+    var d = (item.days || []).slice().sort(function (a, b) { return a - b; });
+    if (!d.length) return "每天";
+    if (d.join() === "1,2,3,4,5") return "工作日";
+    if (d.join() === "0,6") return "周末";
+    return "周" + d.map(function (n) { return WEEK[n]; }).join("、");
+  }
+
+  function countdown(ms) {
+    if (ms <= 0) return "现在";
+    var s = Math.floor(ms / 1000);
+    var d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600),
+        m = Math.floor(s % 3600 / 60), ss = s % 60;
+    if (d > 0) return d + " 天 " + h + " 小时后";
+    if (h > 0) return h + " 小时 " + m + " 分后";
+    if (m > 0) return m + " 分 " + pad2(ss) + " 秒后";
+    return ss + " 秒后";
+  }
+
+  /* ═══ 状态 ═══ */
+  var items = [];
+
+  function load() {
+    try {
+      var raw = localStorage.getItem(KEY);
+      items = raw ? JSON.parse(raw) : [];
+      if (!Array.isArray(items)) items = [];
+    } catch (e) { items = []; }
+    var now = Date.now();
+    items.forEach(function (it) {
+      if (typeof it.due !== "number") it.due = computeDue(it, now);
+    });
+  }
+  function save() {
+    try { localStorage.setItem(KEY, JSON.stringify(items)); } catch (e) {}
+  }
+
+  /* ═══ toast ═══ */
+  var toastTimer = null;
+  function toast(msg) {
+    var el = $("toast");
+    el.textContent = msg;
+    el.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { el.classList.remove("show"); }, 2200);
+  }
+
+  /* ═══ 权限：通知 / 声音 / 屏幕常亮 ═══ */
+  var hasNotify = ("Notification" in window);
+  var framed = (function () { try { return window.self !== window.top; } catch (e) { return true; } })();
+  var soundOn = false;
+  var wakeLock = null;
+  var wakeWanted = false;
+
+  function permState() {
+    if (!hasNotify) return "unsupported";
+    if (framed && Notification.permission !== "granted") return "framed";
+    return Notification.permission;
+  }
+
+  function paintPerm() {
+    var s = permState();
+    var pill = $("pill-notify");
+    pill.className = "pill " + (s === "granted" ? "ok" : (s === "denied" || s === "framed") ? "bad" : "");
+    pill.textContent = s === "granted" ? "已授权"
+                     : s === "denied" ? "已拒绝"
+                     : s === "framed" ? "需独立窗口"
+                     : s === "unsupported" ? "不支持" : "未授权";
+    $("s-perm").textContent = pill.textContent;
+    $("s-perm-wrap").className = "stat" + (s === "granted" ? " s-a" : (s === "denied" || s === "framed") ? " s-warn" : "");
+    $("btn-notify").disabled = (s !== "default");
+    $("btn-notify").textContent = s === "granted" ? "通知已开启"
+                                : s === "denied" ? "请到浏览器设置重新允许"
+                                : s === "framed" ? "请在独立标签页打开本页"
+                                : s === "unsupported" ? "此浏览器不支持通知" : "请求通知权限";
+  }
+
+  $("btn-notify").addEventListener("click", function () {
+    if (!hasNotify) return;
+    var done = function (r) {
+      paintPerm();
+      if (r === "granted") { notify("信标已就位", "到点我会在这里叫你。"); toast("通知权限已开启"); }
+    };
+    try {
+      var p = Notification.requestPermission(done);
+      if (p && typeof p.then === "function") p.then(done).catch(function () { paintPerm(); });
+    } catch (e) { paintPerm(); }
+  });
+
+  function notify(title, body) {
+    if (!hasNotify || Notification.permission !== "granted") return false;
+    try {
+      var n = new Notification(title, { body: body, tag: "beacon", renotify: true, requireInteraction: true });
+      n.onclick = function () { try { window.focus(); } catch (e) {} n.close(); };
+      return true;
+    } catch (e) { return false; }
+  }
+
+  var actx = null;
+  function ensureAudio() {
+    try {
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return false;
+      if (!actx) actx = new AC();
+      if (actx.state === "suspended") actx.resume();
+      return true;
+    } catch (e) { return false; }
+  }
+  function chime() {
+    if (!actx) return;
+    var base = actx.currentTime;
+    [880, 1174.7, 1567.98].forEach(function (f, i) {
+      var o = actx.createOscillator(), g = actx.createGain();
+      o.type = "sine"; o.frequency.value = f;
+      var t = base + i * 0.16;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.22, t + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.42);
+      o.connect(g); g.connect(actx.destination);
+      o.start(t); o.stop(t + 0.45);
+    });
+  }
+  function paintSound() {
+    var p = $("pill-sound");
+    p.className = "pill" + (soundOn ? " ok" : "");
+    p.textContent = soundOn ? "已启用" : "未启用";
+    $("btn-sound").textContent = soundOn ? "再听一次" : "试听提示音";
+  }
+  $("btn-sound").addEventListener("click", function () {
+    soundOn = ensureAudio();
+    if (soundOn) chime();
+    if (navigator.vibrate) { try { navigator.vibrate(60); } catch (e) {} }
+    paintSound();
+  });
+
+  function paintWake() {
+    var p = $("pill-wake");
+    var supported = ("wakeLock" in navigator);
+    p.className = "pill" + (wakeLock ? " ok" : !supported ? " bad" : "");
+    p.textContent = wakeLock ? "生效中" : supported ? (wakeWanted ? "待生效" : "未启用") : "不支持";
+    $("btn-wake").disabled = !supported;
+    $("btn-wake").textContent = !supported ? "此浏览器不支持"
+                              : wakeWanted ? "关闭屏幕常亮" : "开启屏幕常亮";
+  }
+  function acquireWake() {
+    if (!wakeWanted || wakeLock || !("wakeLock" in navigator) || document.hidden) return;
+    navigator.wakeLock.request("screen").then(function (l) {
+      wakeLock = l;
+      l.addEventListener("release", function () { wakeLock = null; paintWake(); });
+      paintWake();
+    }).catch(function () { paintWake(); });
+  }
+  function releaseWake() {
+    if (wakeLock) { try { wakeLock.release(); } catch (e) {} }
+    wakeLock = null; paintWake();
+  }
+  $("btn-wake").addEventListener("click", function () {
+    wakeWanted = !wakeWanted;
+    if (wakeWanted) acquireWake(); else releaseWake();
+    paintWake();
+  });
+
+  /* ═══ 新建对话框 ═══ */
+  var mode = "once";
+  var picked = [1, 2, 3, 4, 5];
+  var dlgNew = $("dlg-new");
+
+  var dayBtns = WEEK.map(function (w, i) {
+    var b = document.createElement("button");
+    b.type = "button"; b.className = "day"; b.textContent = w;
+    b.setAttribute("aria-pressed", picked.indexOf(i) !== -1 ? "true" : "false");
+    b.addEventListener("click", function () {
+      var at = picked.indexOf(i);
+      if (at === -1) picked.push(i); else picked.splice(at, 1);
+      b.setAttribute("aria-pressed", picked.indexOf(i) !== -1 ? "true" : "false");
+      paintPreview();
+    });
+    $("f-days").appendChild(b);
+    return b;
+  });
+
+  Array.prototype.forEach.call($("f-mode").children, function (b) {
+    b.addEventListener("click", function () {
+      mode = b.dataset.mode;
+      Array.prototype.forEach.call($("f-mode").children, function (o) {
+        o.setAttribute("aria-selected", o === b ? "true" : "false");
+      });
+      $("wrap-date").hidden = (mode !== "once");
+      $("wrap-days").hidden = (mode !== "week");
+      paintPreview();
+    });
+  });
+
+  function draft() {
+    return {
+      time: $("f-time").value || "08:00",
+      label: $("f-msg").value.trim(),
+      mode: mode,
+      date: $("f-date").value || ymd(new Date()),
+      days: picked.slice()
+    };
+  }
+
+  function paintPreview() {
+    var d = draft();
+    if (d.mode === "week" && !d.days.length) {
+      $("preview").textContent = "至少选一个星期。";
+      $("preview").classList.add("warn");
+      return;
+    }
+    var due = computeDue(d, Date.now());
+    if (d.mode === "once" && due <= Date.now()) {
+      $("preview").textContent = "这个时刻已经过去了，换一个未来的时间。";
+      $("preview").classList.add("warn");
+      return;
+    }
+    var dt = new Date(due);
+    $("preview").textContent = "下一次触发：" + ymd(dt) + " 周" + WEEK[dt.getDay()] + " " +
+      hm(due) + "，" + countdown(due - Date.now()) + "。";
+    $("preview").classList.remove("warn");
+  }
+
+  ["f-time", "f-date", "f-msg"].forEach(function (id) { $(id).addEventListener("input", paintPreview); });
+
+  function openNew() {
+    mode = "once";
+    Array.prototype.forEach.call($("f-mode").children, function (o, i) { o.setAttribute("aria-selected", i === 0 ? "true" : "false"); });
+    $("wrap-date").hidden = false;
+    $("wrap-days").hidden = true;
+    var seed = new Date(Date.now() + 3600000);
+    seed.setMinutes(Math.ceil(seed.getMinutes() / 5) * 5, 0, 0);
+    $("f-time").value = pad2(seed.getHours()) + ":" + pad2(seed.getMinutes());
+    $("f-date").value = ymd(seed);
+    $("f-date").min = ymd(new Date());
+    $("f-msg").value = "";
+    paintPreview();
+    if (!$("pill-notify").classList.contains("ok")) {
+      // 没授权也能建，只是提醒一下
+    }
+    dlgNew.showModal();
+    $("f-time").focus();
+  }
+  $("btn-new").addEventListener("click", openNew);
+  $("f-cancel").addEventListener("click", function () { dlgNew.close(); });
+  dlgNew.addEventListener("cancel", function () {}); // Esc 关闭，默认行为足够
+
+  $("f-save").addEventListener("click", function () {
+    var d = draft();
+    if (d.mode === "week" && !d.days.length) { paintPreview(); return; }
+    var due = computeDue(d, Date.now());
+    if (d.mode === "once" && due <= Date.now()) { paintPreview(); return; }
+    items.push({
+      id: "r" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      time: d.time, label: d.label || "时间到了", mode: d.mode, date: d.date, days: d.days,
+      enabled: true, due: due
+    });
+    save(); render();
+    dlgNew.close();
+    toast("已保存并武装");
+  });
+
+  /* ═══ 队列渲染 ═══ */
+  function render() {
+    var now = Date.now();
+    var list = $("list");
+    list.textContent = "";
+    var sorted = items.slice().sort(function (a, b) { return a.due - b.due; });
+
+    sorted.forEach(function (it, idx) {
+      var row = document.createElement("div");
+      row.className = "row-item" + (it.enabled ? "" : " off");
+      row.style.setProperty("--cc", "var(--" + CC[idx % CC.length] + ")");
+
+      var bar = document.createElement("div");
+      bar.className = "row-bar";
+
+      var t = document.createElement("div");
+      t.className = "row-time mono";
+      t.textContent = it.time;
+
+      var body = document.createElement("div");
+      body.className = "row-body";
+      var msg = document.createElement("div");
+      msg.className = "row-msg";
+      msg.textContent = it.label;
+      var meta = document.createElement("div");
+      meta.className = "row-meta";
+      var rep = document.createElement("span");
+      rep.textContent = repeatText(it);
+      var cd = document.createElement("span");
+      cd.className = "cd";
+      cd.dataset.cd = it.id;
+      cd.textContent = it.enabled ? countdown(it.due - now) : "已停用";
+      meta.appendChild(rep); meta.appendChild(cd);
+      body.appendChild(msg); body.appendChild(meta);
+
+      var acts = document.createElement("div");
+      acts.className = "row-acts";
+      var tog = document.createElement("button");
+      tog.className = "icon-btn" + (it.enabled ? " on" : "");
+      tog.type = "button";
+      tog.title = it.enabled ? "停用" : "启用";
+      tog.setAttribute("aria-label", (it.enabled ? "停用" : "启用") + "「" + it.label + "」");
+      tog.textContent = it.enabled ? "◉" : "○";
+      tog.addEventListener("click", function () {
+        it.enabled = !it.enabled;
+        if (it.enabled) it.due = computeDue(it, Date.now());
+        save(); render();
+      });
+      var del = document.createElement("button");
+      del.className = "icon-btn del";
+      del.type = "button";
+      del.title = "删除";
+      del.setAttribute("aria-label", "删除「" + it.label + "」");
+      del.textContent = "×";
+      del.addEventListener("click", function () {
+        items = items.filter(function (x) { return x.id !== it.id; });
+        save(); render();
+      });
+      acts.appendChild(tog); acts.appendChild(del);
+
+      row.appendChild(bar); row.appendChild(t); row.appendChild(body); row.appendChild(acts);
+      list.appendChild(row);
+    });
+
+    $("empty").hidden = items.length > 0;
+    $("q-count").textContent = items.length;
+
+    var armed = items.filter(function (it) { return it.enabled; });
+    $("s-armed").textContent = armed.length;
+    var next = armed.slice().sort(function (a, b) { return a.due - b.due; })[0];
+    $("s-next").textContent = next ? hm(next.due) : "--:--";
+
+    if (armed.length && wakeWanted) acquireWake();
+    if (!armed.length) releaseWake();
+  }
+
+  function tickLabels() {
+    var now = Date.now();
+    items.forEach(function (it) {
+      var el = document.querySelector('[data-cd="' + it.id + '"]');
+      if (el) el.textContent = it.enabled ? countdown(it.due - now) : "已停用";
+    });
+    var armed = items.filter(function (x) { return x.enabled; }).sort(function (a, b) { return a.due - b.due; });
+    if (armed.length) $("s-next").textContent = hm(armed[0].due);
+  }
+
+  $("btn-clear").addEventListener("click", function () {
+    if (!items.length) return;
+    if (!window.confirm("清空全部 " + items.length + " 条提醒？此操作不可撤销。")) return;
+    items = []; save(); render();
+    toast("队列已清空");
+  });
+
+  $("btn-test").addEventListener("click", function () {
+    var sent = notify("信标 · 测试", "这就是到点时你会看到的样子。");
+    ring({ time: hm(Date.now()), label: "这是一条测试提醒。" }, sent ? "测试通知已发出" : "测试（系统通知未发出）");
+  });
+
+  /* ═══ 响铃 ═══ */
+  var dlgRing = $("dlg-ring");
+  var ringing = null, ringTimer = null, ringStop = 0;
+
+  function ring(it, eyebrow) {
+    ringing = it;
+    $("ring-eyebrow").textContent = eyebrow || "信标触发";
+    $("ring-time").textContent = it.time;
+    $("ring-msg").textContent = it.label;
+    $("ring-snooze").hidden = !it.id;
+    if (!dlgRing.open) dlgRing.showModal();
+    if (navigator.vibrate) { try { navigator.vibrate([200, 120, 200, 120, 400]); } catch (e) {} }
+    if (soundOn) {
+      chime();
+      ringStop = Date.now() + 60000;
+      clearInterval(ringTimer);
+      ringTimer = setInterval(function () {
+        if (Date.now() > ringStop || !dlgRing.open) { clearInterval(ringTimer); return; }
+        chime();
+      }, 3000);
+    }
+  }
+  function hideRing() {
+    if (dlgRing.open) dlgRing.close();
+    ringing = null;
+    clearInterval(ringTimer);
+    if (navigator.vibrate) { try { navigator.vibrate(0); } catch (e) {} }
+  }
+  $("ring-stop").addEventListener("click", hideRing);
+  $("ring-snooze").addEventListener("click", function () {
+    if (ringing && ringing.id) {
+      var it = items.filter(function (x) { return x.id === ringing.id; })[0];
+      if (it) { it.enabled = true; it.due = Date.now() + 600000; save(); render(); toast("已推迟 10 分钟"); }
+    }
+    hideRing();
+  });
+  dlgRing.addEventListener("cancel", function (e) { e.preventDefault(); });
+
+  /* ═══ 计时主循环 ═══ */
+  function fire(it, late) {
+    notify(it.label, (late ? "已错过 · " : "") + it.time + " 的提醒");
+    if (it.mode === "once") it.enabled = false; else it.due = computeDue(it, Date.now());
+    save(); render();
+    if (!dlgRing.open) ring(it, late ? "错过的信标" : "信标触发");
+  }
+
+  function sweep() {
+    var now = Date.now();
+    var due = items.filter(function (it) { return it.enabled && it.due <= now; })
+                   .sort(function (a, b) { return a.due - b.due; });
+    due.forEach(function (it) { fire(it, now - it.due > 90000); });
+    if (due.length) render();
+  }
+
+  setInterval(function () { sweep(); tickLabels(); }, 1000);
+
+  document.addEventListener("visibilitychange", function () {
+    if (!document.hidden) { sweep(); render(); acquireWake(); }
+  });
+
+  /* ═══ 离线缓存 ═══ */
+  if ("serviceWorker" in navigator && /^https?:$/.test(location.protocol)) {
+    window.addEventListener("load", function () {
+      navigator.serviceWorker.register("sw.js").catch(function () {});
+    });
+  }
+
+  /* ═══ 启动 ═══ */
+  load();
+  paintPerm();
+  paintSound();
+  paintWake();
+  render();
+  sweep();
+
+  /* ═══ 自检：?test=1 ═══ */
+  if (/[?&]test=1/.test(location.search)) {
+    var fails = [], checks = 0;
+    var ok = function (cond, name) { checks++; if (!cond) fails.push(name); };
+    var base = new Date(2026, 0, 5, 10, 0, 0, 0).getTime();
+
+    ok(computeDue({ mode: "daily", time: "11:00" }, base) === new Date(2026, 0, 5, 11, 0).getTime(),
+       "daily 当天更晚的时刻应落在今天");
+    ok(computeDue({ mode: "daily", time: "09:00" }, base) === new Date(2026, 0, 6, 9, 0).getTime(),
+       "daily 已过的时刻应顺延到明天");
+    ok(computeDue({ mode: "daily", time: "10:00" }, base) === new Date(2026, 0, 6, 10, 0).getTime(),
+       "daily 恰好等于当前时刻应顺延");
+    ok(computeDue({ mode: "week", time: "09:00", days: [3] }, base) === new Date(2026, 0, 7, 9, 0).getTime(),
+       "week 应跳到最近的目标星期");
+    ok(computeDue({ mode: "week", time: "09:00", days: [1] }, base) === new Date(2026, 0, 12, 9, 0).getTime(),
+       "week 同一星期但时刻已过，应顺延一周");
+    ok(computeDue({ mode: "week", time: "09:00", days: [] }, base) === new Date(2026, 0, 6, 9, 0).getTime(),
+       "week 未选星期应退化为每天");
+    ok(computeDue({ mode: "once", time: "07:30", date: "2026-03-09" }, base) === new Date(2026, 2, 9, 7, 30).getTime(),
+       "once 应返回指定日期时刻");
+    ok(countdown(-1000) === "现在", "过期倒计时应显示「现在」");
+    ok(repeatText({ mode: "week", days: [1, 2, 3, 4, 5] }) === "工作日", "周一至周五应识别为工作日");
+    ok(document.querySelectorAll(".rail .card").length === 2, "侧栏应有 2 张卡片");
+    ok(dlgNew.tagName === "DIALOG" && dlgRing.tagName === "DIALOG", "新建与响铃都应是原生 dialog");
+    ok(document.documentElement.scrollWidth <= window.innerWidth + 1, "文档不应横向溢出");
+
+    if (fails.length) {
+      console.error("自检失败 " + fails.length + " 项：\n- " + fails.join("\n- "));
+    } else {
+      console.log("自检全部通过（" + checks + " 项）");
+    }
+    window.__beaconTest = { fails: fails, computeDue: computeDue, countdown: countdown };
+  }
+})();
+</script>
+</body>
+</html>

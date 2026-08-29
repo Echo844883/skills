@@ -1,0 +1,20 @@
+{
+  "name": "信标提醒台",
+  "short_name": "信标",
+  "description": "设定一个时刻，写下要对自己说的话。装到主屏幕后离线也能计时和响铃。",
+  "id": "/beacon-planner/",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#EFF4F2",
+  "theme_color": "#17796B",
+  "lang": "zh-CN",
+  "dir": "ltr",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-192-maskable.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
