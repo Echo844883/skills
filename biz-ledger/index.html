@@ -18,6 +18,9 @@
       <button type="button" class="btn btn-ghost" id="export-csv">导出 CSV</button>
       <button type="button" class="btn btn-ghost" id="import-csv">导入 CSV</button>
       <input type="file" id="file-input" accept=".csv,text/csv" hidden>
+      <button type="button" class="btn btn-ghost" id="import-invoice">导入发票 (PDF)</button>
+      <input type="file" id="invoice-file-input" accept=".pdf" hidden>
+      <button type="button" class="btn btn-ghost" id="invoice-paste-open">手动粘贴发票文字</button>
       <button type="button" class="btn btn-ghost btn-danger" id="clear-all">清空</button>
     </div>
   </div>
@@ -117,6 +120,14 @@
         </div>
       </div>
 
+      <div class="field-row">
+        <div class="field">
+          <label for="s-my-tax-id">本方纳税人识别号 <span class="optional">选填</span></label>
+          <input type="text" id="s-my-tax-id" autocomplete="off" placeholder="统一社会信用代码，用于导入发票时自动判断收入/支出">
+          <p class="error" id="s-my-tax-id-error" role="alert"></p>
+        </div>
+      </div>
+
       <details class="advanced">
         <summary>进阶：扣除限额参数（仅用于提示，不改变测算数字）</summary>
         <div class="field-row field-row-3">
@@ -143,6 +154,29 @@
         <span class="save-hint" id="settings-save-hint" role="status" aria-live="polite"></span>
       </div>
     </div>
+  </section>
+
+  <section class="card invoice-import-card" id="invoice-import-card" hidden aria-labelledby="invoice-import-title">
+    <div class="card-head">
+      <h2 class="card-title" id="invoice-import-title">发票识别结果</h2>
+      <button type="button" class="icon-btn" id="invoice-import-close">关闭</button>
+    </div>
+    <p class="notice notice-tight">
+      只提取了发票号码、日期、买卖双方、合计金额、税率这类有固定标签的字段，
+      不保证准确——已经预填到下面的表单里，保存前请核对，尤其是标黄的部分。
+    </p>
+    <div id="invoice-import-summary"></div>
+    <p class="invoice-import-status" id="invoice-import-status" hidden></p>
+    <details class="advanced" id="invoice-paste-fallback">
+      <summary>PDF 没读出文字？手动粘贴发票上的文字试试</summary>
+      <p class="report-note">
+        打开这份 PDF，全选复制里面的文字（Ctrl/⌘+A 然后 Ctrl/⌘+C），粘贴到下面，
+        再点「解析粘贴的文字」。如果 PDF 本身就是扫描件或照片存的，是没有文字可复制的——
+        那种只能手动填表单了。
+      </p>
+      <textarea id="invoice-paste-text" rows="5" placeholder="粘贴发票文字…"></textarea>
+      <button type="button" class="btn btn-ghost" id="invoice-paste-parse" style="margin-top:8px">解析粘贴的文字</button>
+    </details>
   </section>
 
   <section class="card form-card" aria-labelledby="form-title">

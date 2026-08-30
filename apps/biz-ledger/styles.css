@@ -385,6 +385,23 @@ input::placeholder { color: var(--text-faint); }
   border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface-2); color: var(--text);
 }
 
+/* ---------- 发票导入 ---------- */
+.invoice-import-card .report-table td.num { max-width: 60%; overflow-wrap: anywhere; }
+.invoice-warnings {
+  margin: 12px 0 0; padding: 0; list-style: none;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.invoice-warnings li {
+  padding: 7px 10px; border-radius: var(--radius-sm);
+  background: var(--advisory-soft); color: var(--advisory); font-size: 12.5px;
+}
+.invoice-import-status { font-size: 13px; color: var(--text-muted); }
+#invoice-paste-text {
+  width: 100%; font-family: var(--font-mono); font-size: 12px; line-height: 1.5;
+  padding: 10px; border-radius: var(--radius-sm); border: 1px solid var(--border-strong);
+  background: var(--surface); color: var(--text); resize: vertical; margin-top: 10px;
+}
+
 /* ---------- 响应式 ---------- */
 @media (max-width: 900px) {
   .columns { grid-template-columns: minmax(0, 1fr); }

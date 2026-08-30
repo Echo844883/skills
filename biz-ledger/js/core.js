@@ -59,7 +59,8 @@
     ],
     entertainmentDeductRate: 60, // 业务招待费按发生额的比例可扣除（示例 60%）
     entertainmentRevenueCap: 0.5, // 业务招待费扣除上限＝收入的该比例（示例 0.5%）
-    adRevenueCap: 15 // 广告宣传费扣除上限＝收入的该比例（示例 15%，行业不同差异很大）
+    adRevenueCap: 15, // 广告宣传费扣除上限＝收入的该比例（示例 15%，行业不同差异很大）
+    myTaxId: '' // 本方统一社会信用代码/纳税人识别号，选填；只用于导入发票 PDF 时自动判断收入还是支出
   };
 
   // ---------- 金额 ----------
@@ -454,6 +455,153 @@
     return advisories;
   }
 
+  // ---------- 发票 PDF 导入：从提取出的文字里找字段 ----------
+
+  /**
+   * 常见发票项目名称关键词 -> 本工具科目的粗略对应，仅供预填，不保证准确。
+   * 中国增值税发票的项目名称统一写成「*大类*明细」，大类是税务局规定的
+   * 编码表用语，这里只挑记账场景常见的几个，覆盖不到的留给用户自己选。
+   */
+  var INVOICE_CATEGORY_HINTS = [
+    { test: /餐饮|住宿/, category: '业务招待费' },
+    { test: /客运|运输|交通|停车|加油|燃油/, category: '交通费' },
+    { test: /办公用品|文具|耗材/, category: '办公费' },
+    { test: /广告|宣传|推广/, category: '广告宣传费' },
+    { test: /咨询|服务费|顾问|法律|审计/, category: '咨询服务费' },
+    { test: /租赁|物业|租金/, category: '房租物业' },
+    { test: /通信|电信|互联网|信息技术|软件/, category: '水电网络' },
+    { test: /建筑|装修|安装/, category: '其他费用' }
+  ];
+
+  function guessCategory(itemNames) {
+    for (var i = 0; i < itemNames.length; i++) {
+      for (var j = 0; j < INVOICE_CATEGORY_HINTS.length; j++) {
+        if (INVOICE_CATEGORY_HINTS[j].test.test(itemNames[i])) return INVOICE_CATEGORY_HINTS[j].category;
+      }
+    }
+    return '';
+  }
+
+  /** text 里某个正则的全部匹配，附带出现位置，方便按先后顺序配对。 */
+  function findAll(text, pattern) {
+    var re = new RegExp(pattern.source, pattern.flags.indexOf('g') === -1 ? pattern.flags + 'g' : pattern.flags);
+    var out = [];
+    var m;
+    while ((m = re.exec(text))) {
+      out.push({ index: m.index, value: m[1] });
+      if (m[0].length === 0) re.lastIndex++; // 防止空匹配死循环
+    }
+    return out;
+  }
+
+  /**
+   * 从 PDF 提取出的原始文字里识别发票字段。PDF.js 抽取文字的顺序未必和
+   * 视觉版面完全一致（尤其是并排的两栏、旋转的标签），所以这里只找有唯一、
+   * 稳定文字锚点的字段（发票号码、开票日期、合计、价税合计、买卖双方名称
+   * 和税号），不去猜逐行明细跟金额/税率的精确对应关系——那样猜错的风险
+   * 比不猜更高。买卖双方按「名称」「统一社会信用代码」出现的先后顺序配对，
+   * 猜不准的地方都会进 warnings，界面上要让用户在保存前自己核对。
+   */
+  function parseInvoiceText(text, settings) {
+    var raw = String(text || '');
+    // PDF.js 相邻文字块之间可能没有空白，先规整一下常见的连续空白
+    var t = raw.replace(/\s+/g, ' ');
+    var warnings = [];
+    var fields = {
+      invoiceNo: null, date: null, invoiceType: null,
+      buyerName: null, buyerTaxId: null, sellerName: null, sellerTaxId: null,
+      direction: null, counterparty: null,
+      grossAmount: null, taxRate: null, itemNote: null, category: ''
+    };
+
+    var invoiceNoMatch = t.match(/发票号码[：:]\s*(\d{8,24})/);
+    if (invoiceNoMatch) fields.invoiceNo = invoiceNoMatch[1];
+    else warnings.push('没找到发票号码');
+
+    var dateMatch = t.match(/开票日期[：:]\s*(\d{4})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日/);
+    if (dateMatch) {
+      fields.date = dateMatch[1] + '-' + dateMatch[2].padStart(2, '0') + '-' + dateMatch[3].padStart(2, '0');
+    } else {
+      warnings.push('没找到开票日期，需要手动填');
+    }
+
+    if (/增值税专用发票/.test(t)) fields.invoiceType = 'special';
+    else if (/发票/.test(t)) fields.invoiceType = 'general';
+
+    // 名称/统一社会信用代码各出现两次：买方一组、卖方一组，按先后顺序配对
+    var names = findAll(t, /名\s*称[：:]\s*([^\s，,]+)/);
+    var taxIds = findAll(t, /(?:统一社会信用代码\/纳税人识别号|纳税人识别号)[：:]\s*([A-Z0-9]{15,20})/);
+
+    if (names.length >= 2 && taxIds.length >= 2) {
+      fields.buyerName = names[0].value;
+      fields.sellerName = names[1].value;
+      fields.buyerTaxId = taxIds[0].value;
+      fields.sellerTaxId = taxIds[1].value;
+    } else if (names.length === 1) {
+      warnings.push('只找到一个购销方名称，另一方需要手动填');
+      fields.buyerName = names[0].value;
+    } else {
+      warnings.push('没找到购买方/销售方名称，需要手动填往来单位');
+    }
+
+    var myTaxId = (settings && settings.myTaxId || '').trim().toUpperCase();
+    if (myTaxId && fields.buyerTaxId === myTaxId) {
+      fields.direction = 'expense';
+      fields.counterparty = fields.sellerName;
+    } else if (myTaxId && fields.sellerTaxId === myTaxId) {
+      fields.direction = 'income';
+      fields.counterparty = fields.buyerName;
+    } else if (fields.buyerName || fields.sellerName) {
+      warnings.push('无法判断这笔是收入还是支出——在「税务参数」里填上本方纳税人识别号可以自动判断，现在需要手动选');
+    }
+
+    // 项目名称统一写成「*大类*明细」，这个格式本身就是稳定的识别锚点
+    var items = findAll(t, /\*([^*\s]+)\*([^\s*]+)/);
+    if (items.length > 0) {
+      var itemLabels = [];
+      var seen = {};
+      items.forEach(function (it) {
+        var label = it.value;
+        if (!seen[label]) { seen[label] = true; itemLabels.push(label); }
+      });
+      fields.itemNote = itemLabels.join('、').slice(0, 200);
+      fields.category = guessCategory(items.map(function (it) { return it.value; }));
+    } else {
+      warnings.push('没找到项目名称，备注需要手动填');
+    }
+
+    // 税率：收集所有「NN%」，取出现次数最多的一档；不止一档就提醒去核对
+    var rateMatches = raw.match(/(\d+(?:\.\d+)?)%/g) || [];
+    if (rateMatches.length > 0) {
+      var counts = {};
+      rateMatches.forEach(function (m) {
+        var v = m.slice(0, -1);
+        counts[v] = (counts[v] || 0) + 1;
+      });
+      var rateKeys = Object.keys(counts).sort(function (a, b) { return counts[b] - counts[a]; });
+      fields.taxRate = parseRate(rateKeys[0]);
+      if (rateKeys.length > 1) warnings.push('这张发票里有不止一档税率（' + rateKeys.join('%、') + '%），已按出现最多的一档预填，请核对');
+    } else {
+      warnings.push('没找到税率，需要手动填');
+    }
+
+    // 价税合计：优先找「小写」金额；找不到就退回「合计」行的金额+税额相加
+    var grossMatch = t.match(/小写[）)]?\s*[¥￥]?\s*([\d,]+\.\d{2})/);
+    if (grossMatch) {
+      fields.grossAmount = parseAmount(grossMatch[1]);
+    } else {
+      var totalMatch = t.match(/合\s*计[^\d¥￥-]*[¥￥]?\s*(-?[\d,]+\.\d{2})[^\d¥￥-]*[¥￥]?\s*(-?[\d,]+\.\d{2})/);
+      if (totalMatch) {
+        var net = parseAmount(totalMatch[1]);
+        var tax = parseAmount(totalMatch[2]);
+        if (net !== null && tax !== null) fields.grossAmount = net + tax;
+      }
+    }
+    if (fields.grossAmount === null) warnings.push('没找到价税合计金额，需要手动填');
+
+    return { fields: fields, warnings: warnings };
+  }
+
   // ---------- 税务参数校验 ----------
 
   function parseNonNegativeAmount(input) {
@@ -505,6 +653,9 @@
     var adRevenueCap = parseRate(raw.adRevenueCap);
     if (adRevenueCap === null) errors.adRevenueCap = '比例应为 0~100 的数字';
 
+    var myTaxId = String(raw.myTaxId == null ? '' : raw.myTaxId).trim().toUpperCase();
+    if (myTaxId.length > 0 && (myTaxId.length < 15 || myTaxId.length > 20)) errors.myTaxId = '纳税人识别号一般是 15~20 位';
+
     var ok = Object.keys(errors).length === 0;
     if (!ok) return { ok: false, errors: errors, value: null };
 
@@ -525,7 +676,8 @@
         ],
         entertainmentDeductRate: entertainmentDeductRate,
         entertainmentRevenueCap: entertainmentRevenueCap,
-        adRevenueCap: adRevenueCap
+        adRevenueCap: adRevenueCap,
+        myTaxId: myTaxId
       }
     };
   }
@@ -693,6 +845,10 @@
     bracketTax: bracketTax,
     citCalc: citCalc,
     deductionAdvisory: deductionAdvisory,
+
+    parseInvoiceText: parseInvoiceText,
+    guessCategory: guessCategory,
+    INVOICE_CATEGORY_HINTS: INVOICE_CATEGORY_HINTS,
 
     toCSV: toCSV,
     parseCSV: parseCSV,

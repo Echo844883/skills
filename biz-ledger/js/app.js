@@ -126,6 +126,7 @@
     $('s-entertain-rate').value = String(s.entertainmentDeductRate);
     $('s-entertain-cap').value = String(s.entertainmentRevenueCap);
     $('s-ad-cap').value = String(s.adRevenueCap);
+    $('s-my-tax-id').value = s.myTaxId || '';
     toggleSettingsFieldsByType();
   }
 
@@ -159,7 +160,8 @@
       citHighRate: $('s-cit-high').value,
       entertainmentDeductRate: $('s-entertain-rate').value,
       entertainmentRevenueCap: $('s-entertain-cap').value,
-      adRevenueCap: $('s-ad-cap').value
+      adRevenueCap: $('s-ad-cap').value,
+      myTaxId: $('s-my-tax-id').value
     };
   }
 
@@ -169,6 +171,7 @@
     surtaxRate: 's-surtax-rate', citBracketCap: 's-cit-cap', citLowRate: 's-cit-low',
     citHighRate: 's-cit-high', entertainmentDeductRate: 's-entertain-rate',
     entertainmentRevenueCap: 's-entertain-cap', adRevenueCap: 's-ad-cap',
+    myTaxId: 's-my-tax-id',
     taxpayerType: null, period: null
   };
 
@@ -812,6 +815,203 @@
     reader.readAsText(file, 'utf-8');
   }
 
+  // ---------- 导入发票 PDF ----------
+  //
+  // 分两半：pdf.js 的加载和文字提取是「碰运气」的部分（不同 PDF 质量不同，
+  // 库本身也不小），parseInvoiceText（core.js）是纯逻辑、已经单测过的部分。
+  // 这里只负责把提取出的文字交给 core.js，再把结果铺到已有的记账表单上——
+  // 复用同一个「保存」按钮和校验逻辑，导入进来的东西跟手填的一视同仁，
+  // 保存前必须让人看一眼、改一改。
+
+  var pdfjsReadyPromise = null;
+
+  /** 把一个字符串当作经典脚本执行（不用 eval，用真实的 <script> 标签）。 */
+  function runScriptSource(source) {
+    return new Promise(function (resolve, reject) {
+      var script = document.createElement('script');
+      script.textContent = source;
+      script.onerror = function () { reject(new Error('脚本执行失败')); };
+      document.head.appendChild(script);
+      // 内联脚本没有 onload，写完就是执行完了
+      resolve();
+    });
+  }
+
+  /** 加载一个外部脚本文件（本地/Pages 部署用这个）。 */
+  function loadScriptFile(src) {
+    return new Promise(function (resolve, reject) {
+      var script = document.createElement('script');
+      script.src = src;
+      script.onload = function () { resolve(); };
+      script.onerror = function () { reject(new Error('加载 ' + src + ' 失败')); };
+      document.head.appendChild(script);
+    });
+  }
+
+  /**
+   * 懒加载 pdf.js。第一次点「导入发票」才会跑这个，平时打开页面不用多下载
+   * 这将近 2.5MB。托管版（Artifact）把库内容整段放在 <script type="text/plain">
+   * 孤岛里（因为发布出去是单个文件，没有旁边的 js/vendor/ 目录可以引用）；
+   * 本地版/Pages 版就是正常的独立文件，直接 <script src> 加载。
+   */
+  function ensurePdfJs() {
+    if (pdfjsReadyPromise) return pdfjsReadyPromise;
+
+    var libIsland = $('pdf-lib-src-data');
+    var workerIsland = $('pdf-worker-src-data');
+
+    var loadLib = libIsland
+      ? runScriptSource(libIsland.textContent)
+      : loadScriptFile('js/vendor/pdf.bundle.js');
+    var loadWorker = workerIsland
+      ? runScriptSource(workerIsland.textContent)
+      : loadScriptFile('js/vendor/pdf-worker-src.js');
+
+    pdfjsReadyPromise = Promise.all([loadLib, loadWorker]).then(function () {
+      if (!window.pdfjsLib || !window.__PDF_WORKER_SRC__) {
+        throw new Error('pdf.js 没能正常加载');
+      }
+      var blob = new Blob([window.__PDF_WORKER_SRC__], { type: 'text/javascript' });
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(blob);
+      return window.pdfjsLib;
+    }).catch(function (err) {
+      pdfjsReadyPromise = null; // 加载失败不要缓存，下次点了能重试
+      throw err;
+    });
+    return pdfjsReadyPromise;
+  }
+
+  /** 从 PDF 文件里提取所有页面的文字，拼成一段。 */
+  function extractPdfText(file) {
+    return new Promise(function (resolve, reject) {
+      var reader = new FileReader();
+      reader.onerror = function () { reject(new Error('读取文件失败')); };
+      reader.onload = function () {
+        ensurePdfJs().then(function (pdfjsLib) {
+          return pdfjsLib.getDocument({ data: new Uint8Array(reader.result) }).promise;
+        }).then(function (doc) {
+          var pageTexts = [];
+          var pagePromise = Promise.resolve();
+          var collect = function (pageNo) {
+            return doc.getPage(pageNo).then(function (page) { return page.getTextContent(); }).then(function (content) {
+              pageTexts.push(content.items.map(function (item) { return item.str; }).join(' '));
+            });
+          };
+          for (var i = 1; i <= doc.numPages; i++) {
+            pagePromise = pagePromise.then(collect.bind(null, i));
+          }
+          return pagePromise.then(function () { return pageTexts.join(' '); });
+        }).then(resolve, reject);
+      };
+      reader.readAsArrayBuffer(file);
+    });
+  }
+
+  var FIELD_LABELS = {
+    invoiceNo: '发票号码', date: '开票日期', buyerName: '购买方', buyerTaxId: '购买方税号',
+    sellerName: '销售方', sellerTaxId: '销售方税号', grossAmount: '价税合计',
+    taxRate: '税率', itemNote: '项目名称'
+  };
+
+  /** 把识别结果铺到「记一笔」表单上；识别不出来的字段保持原样，不清空已填的值。 */
+  function applyInvoiceFields(fields) {
+    if (fields.direction) {
+      var input = el.form.querySelector('input[name="direction"][value="' + fields.direction + '"]');
+      if (input) input.checked = true;
+    }
+    if (fields.grossAmount !== null) el.grossAmount.value = (fields.grossAmount / 100).toFixed(2);
+    if (fields.taxRate !== null) el.taxRate.value = String(fields.taxRate);
+    if (fields.invoiceType) invoiceType = fields.invoiceType;
+    if (fields.category) el.category.value = fields.category;
+    if (fields.counterparty) el.counterparty.value = fields.counterparty;
+    if (fields.invoiceNo) el.invoiceNo.value = fields.invoiceNo;
+    if (fields.date) el.date.value = fields.date;
+    if (fields.itemNote) el.note.value = fields.itemNote;
+
+    renderCategoryHelpers();
+    renderRateChips();
+    renderInvoiceChips();
+    renderTaxPreview();
+  }
+
+  /** 在识别结果卡片里列出找到了什么、没找到什么，不用 innerHTML 拼。 */
+  function renderInvoiceImportSummary(fields, warnings) {
+    var host = $('invoice-import-summary');
+    host.textContent = '';
+
+    var table = document.createElement('table');
+    table.className = 'report-table';
+    Object.keys(FIELD_LABELS).forEach(function (key) {
+      var value = fields[key];
+      var display = value === null || value === undefined || value === ''
+        ? '（未识别）'
+        : (key === 'grossAmount' ? money(value) : (key === 'taxRate' ? value + '%' : String(value)));
+      var tr = document.createElement('tr');
+      var td1 = document.createElement('td'); td1.className = 'label'; td1.textContent = FIELD_LABELS[key];
+      var td2 = document.createElement('td'); td2.className = 'num'; td2.textContent = display;
+      if (value === null || value === undefined || value === '') td2.style.color = 'var(--advisory)';
+      tr.appendChild(td1); tr.appendChild(td2);
+      table.appendChild(tr);
+    });
+    host.appendChild(table);
+
+    if (warnings.length > 0) {
+      var list = document.createElement('ul');
+      list.className = 'invoice-warnings';
+      warnings.forEach(function (w) {
+        var li = document.createElement('li');
+        li.textContent = w;
+        list.appendChild(li);
+      });
+      host.appendChild(list);
+    }
+  }
+
+  function showInvoiceImportCard() { $('invoice-import-card').hidden = false; }
+  function hideInvoiceImportCard() { $('invoice-import-card').hidden = true; }
+
+  function setInvoiceImportStatus(text) {
+    var box = $('invoice-import-status');
+    box.hidden = !text;
+    box.textContent = text || '';
+  }
+
+  /** 解析文字、铺表单、显示识别结果——PDF 提取和手动粘贴两条路都走到这一步。 */
+  function processInvoiceText(text) {
+    if (!text || !text.trim()) {
+      toast('没有提取到任何文字，这份 PDF 可能是扫描件或图片，试试下面的手动粘贴');
+      showInvoiceImportCard();
+      $('invoice-paste-fallback').open = true;
+      return;
+    }
+    var result = L.parseInvoiceText(text, state.settings);
+    applyInvoiceFields(result.fields);
+    renderInvoiceImportSummary(result.fields, result.warnings);
+    showInvoiceImportCard();
+    setInvoiceImportStatus('');
+
+    el.form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    toast('已识别，保存前请核对一遍表单');
+  }
+
+  function handleInvoicePDF(file) {
+    showInvoiceImportCard();
+    setInvoiceImportStatus('正在读取 PDF…');
+    extractPdfText(file).then(function (text) {
+      processInvoiceText(text);
+    }).catch(function (err) {
+      setInvoiceImportStatus('');
+      toast('读取失败：' + (err && err.message ? err.message : '未知错误') + '，可以试试下面的手动粘贴');
+      $('invoice-paste-fallback').open = true;
+    });
+  }
+
+  function handleInvoicePaste() {
+    var text = $('invoice-paste-text').value;
+    if (!text.trim()) { toast('先粘贴点文字进来'); return; }
+    processInvoiceText(text);
+  }
+
   function clearAll() {
     if (state.records.length === 0) { toast('本来就是空的'); return; }
     var ok = window.confirm('确定清空全部 ' + state.records.length + ' 笔记录吗？\n这个操作不能撤销，建议先导出 CSV 备份。');
@@ -874,6 +1074,19 @@
       this.value = '';
     });
     $('clear-all').addEventListener('click', clearAll);
+
+    $('import-invoice').addEventListener('click', function () { $('invoice-file-input').click(); });
+    $('invoice-file-input').addEventListener('change', function () {
+      if (this.files && this.files[0]) handleInvoicePDF(this.files[0]);
+      this.value = '';
+    });
+    $('invoice-import-close').addEventListener('click', hideInvoiceImportCard);
+    $('invoice-paste-parse').addEventListener('click', handleInvoicePaste);
+    $('invoice-paste-open').addEventListener('click', function () {
+      showInvoiceImportCard();
+      $('invoice-paste-fallback').open = true;
+      $('invoice-paste-text').focus();
+    });
 
     document.addEventListener('keydown', function (event) {
       if (event.key === 'Escape' && state.editingId) resetForm();

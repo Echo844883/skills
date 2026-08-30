@@ -123,6 +123,11 @@ window.LedgerStore = (function () {
       '<div id="app"></div>',
       '<script type="application/json" id="app-data">' +
         jsonForScript({ version: 1, records: records, settings: settings, savedAt: Date.now() }) + close,
+      // pdf.js 的两个孤岛原样搬过去，从头到尾没人碰它们，跟 app-css/app-shell/
+      // app-js 一样安全地读回来重新拼装——漏搬这两个的话，下一次发布出去的
+      // 版本就会丢了导入发票功能。
+      '<script type="text/plain" id="pdf-lib-src-data">' + sourceOf('pdf-lib-src-data') + close,
+      '<script type="text/plain" id="pdf-worker-src-data">' + sourceOf('pdf-worker-src-data') + close,
       '<script id="app-js">' + sourceOf('app-js') + close,
       '</body>',
       '</html>'

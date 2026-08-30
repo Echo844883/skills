@@ -377,3 +377,117 @@ test('normalizeSettings 对 null/undefined 也不报错', () => {
   assert.deepStrictEqual(L.normalizeSettings(null), L.EXAMPLE_SETTINGS);
   assert.deepStrictEqual(L.normalizeSettings(undefined), L.EXAMPLE_SETTINGS);
 });
+
+// ---------- 发票 PDF 导入：文字解析 ----------
+
+// 模拟 PDF.js 从这张示例发票里抽出来、拼接成一整段的文字（顺序未必和视觉版面
+// 完全一致，但常见标签锚点都在）。
+const SAMPLE_INVOICE_TEXT = [
+  '电子发票（普通发票） 发票号码：26117000000453434782 开票日期：2026年03月21日',
+  '购买方信息 名称：北京康益森医疗器械有限公司',
+  '统一社会信用代码/纳税人识别号：91110116MADJM3C53N',
+  '销售方信息 名称：海鸿达（北京）餐饮管理有限公司',
+  '统一社会信用代码/纳税人识别号：91110302X695414934',
+  '项目名称 规格型号 单位 数量 单价 金额 税率/征收率 税额',
+  '*餐饮服务*餐费 1 242.09 242.09 6% 14.53',
+  '*餐饮服务*餐费 -29.09 6% -1.75',
+  '合 计 ¥213.00 ¥12.78',
+  '价税合计（大写） 贰佰贰拾伍圆柒角捌分 （小写） ¥225.78',
+  '开票人：钟杰'
+].join(' ');
+
+test('parseInvoiceText 提取发票号码、日期、发票类型', () => {
+  const { fields } = L.parseInvoiceText(SAMPLE_INVOICE_TEXT, L.EXAMPLE_SETTINGS);
+  assert.strictEqual(fields.invoiceNo, '26117000000453434782');
+  assert.strictEqual(fields.date, '2026-03-21');
+  assert.strictEqual(fields.invoiceType, 'general');
+});
+
+test('parseInvoiceText 按先后顺序把名称和税号配成买卖双方两组', () => {
+  const { fields } = L.parseInvoiceText(SAMPLE_INVOICE_TEXT, L.EXAMPLE_SETTINGS);
+  assert.strictEqual(fields.buyerName, '北京康益森医疗器械有限公司');
+  assert.strictEqual(fields.buyerTaxId, '91110116MADJM3C53N');
+  assert.strictEqual(fields.sellerName, '海鸿达（北京）餐饮管理有限公司');
+  assert.strictEqual(fields.sellerTaxId, '91110302X695414934');
+});
+
+test('parseInvoiceText 名称和税号分两组出现（不是紧挨着）时配对依然正确', () => {
+  // 有些排版会先把两个「名称」都画出来，再画两个「统一社会信用代码」
+  const reordered = [
+    '购买方信息 名称：北京康益森医疗器械有限公司',
+    '销售方信息 名称：海鸿达（北京）餐饮管理有限公司',
+    '统一社会信用代码/纳税人识别号：91110116MADJM3C53N',
+    '统一社会信用代码/纳税人识别号：91110302X695414934'
+  ].join(' ');
+  const { fields } = L.parseInvoiceText(reordered, L.EXAMPLE_SETTINGS);
+  assert.strictEqual(fields.buyerTaxId, '91110116MADJM3C53N');
+  assert.strictEqual(fields.sellerTaxId, '91110302X695414934');
+});
+
+test('parseInvoiceText 本方是购买方时，方向判定为支出，往来单位是销售方', () => {
+  const settings = Object.assign({}, L.EXAMPLE_SETTINGS, { myTaxId: '91110116MADJM3C53N' });
+  const { fields, warnings } = L.parseInvoiceText(SAMPLE_INVOICE_TEXT, settings);
+  assert.strictEqual(fields.direction, 'expense');
+  assert.strictEqual(fields.counterparty, '海鸿达（北京）餐饮管理有限公司');
+  assert.ok(!warnings.some((w) => w.includes('无法判断')));
+});
+
+test('parseInvoiceText 本方是销售方时，方向判定为收入，往来单位是购买方', () => {
+  const settings = Object.assign({}, L.EXAMPLE_SETTINGS, { myTaxId: '91110302x695414934' }); // 大小写不敏感
+  const { fields } = L.parseInvoiceText(SAMPLE_INVOICE_TEXT, settings);
+  assert.strictEqual(fields.direction, 'income');
+  assert.strictEqual(fields.counterparty, '北京康益森医疗器械有限公司');
+});
+
+test('parseInvoiceText 没设置本方纳税人识别号时不猜方向，并给出提示', () => {
+  const { fields, warnings } = L.parseInvoiceText(SAMPLE_INVOICE_TEXT, L.EXAMPLE_SETTINGS);
+  assert.strictEqual(fields.direction, null);
+  assert.ok(warnings.some((w) => w.includes('无法判断')));
+});
+
+test('parseInvoiceText 提取价税合计小写金额（分）', () => {
+  const { fields } = L.parseInvoiceText(SAMPLE_INVOICE_TEXT, L.EXAMPLE_SETTINGS);
+  assert.strictEqual(fields.grossAmount, 22578);
+});
+
+test('parseInvoiceText 找不到小写金额时，退回合计金额+税额相加', () => {
+  const noXiaoxie = SAMPLE_INVOICE_TEXT.replace(/价税合计（大写）[\s\S]*$/, '合 计 ¥213.00 ¥12.78');
+  const { fields } = L.parseInvoiceText(noXiaoxie, L.EXAMPLE_SETTINGS);
+  assert.strictEqual(fields.grossAmount, 22578);
+});
+
+test('parseInvoiceText 单一税率时直接采用，不产生多档提示', () => {
+  const { fields, warnings } = L.parseInvoiceText(SAMPLE_INVOICE_TEXT, L.EXAMPLE_SETTINGS);
+  assert.strictEqual(fields.taxRate, 6);
+  assert.ok(!warnings.some((w) => w.includes('不止一档')));
+});
+
+test('parseInvoiceText 多档税率时取出现最多的一档，并给出提示', () => {
+  const mixedRate = SAMPLE_INVOICE_TEXT.replace('*餐饮服务*餐费 -29.09 6% -1.75', '*办公用品*文具 100.00 13% 13.00');
+  const { fields, warnings } = L.parseInvoiceText(mixedRate, L.EXAMPLE_SETTINGS);
+  assert.strictEqual(fields.taxRate, 6); // 6% 出现两次，13% 一次
+  assert.ok(warnings.some((w) => w.includes('不止一档')));
+});
+
+test('parseInvoiceText 提取项目名称并据此猜科目', () => {
+  const { fields } = L.parseInvoiceText(SAMPLE_INVOICE_TEXT, L.EXAMPLE_SETTINGS);
+  assert.strictEqual(fields.itemNote, '餐饮服务');
+  assert.strictEqual(fields.category, '业务招待费');
+});
+
+test('parseInvoiceText 增值税专用发票能识别出发票类型', () => {
+  const special = SAMPLE_INVOICE_TEXT.replace('电子发票（普通发票）', '电子发票（增值税专用发票）');
+  const { fields } = L.parseInvoiceText(special, L.EXAMPLE_SETTINGS);
+  assert.strictEqual(fields.invoiceType, 'special');
+});
+
+test('parseInvoiceText 空文本时优雅退化，每个字段都给出未找到的提示', () => {
+  const { fields, warnings } = L.parseInvoiceText('', L.EXAMPLE_SETTINGS);
+  assert.strictEqual(fields.invoiceNo, null);
+  assert.strictEqual(fields.grossAmount, null);
+  assert.ok(warnings.length >= 4);
+});
+
+test('guessCategory 覆盖不到的项目名称返回空字符串，不瞎猜', () => {
+  assert.strictEqual(L.guessCategory(['某种从没见过的服务']), '');
+});
