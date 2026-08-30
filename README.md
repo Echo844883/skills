@@ -8,6 +8,12 @@
 | superpowers | [obra/superpowers](https://github.com/obra/superpowers) v6.3.0 (MIT, © Jesse Vincent) | `b36e082`, 2026-08-12 | 14 | Engineering workflow: TDD, debugging, planning, code review |
 | baoyu-skills | [JimLiu/baoyu-skills](https://github.com/JimLiu/baoyu-skills) v2.5.2 (MIT, © Jim Liu 宝玉) | `6b7a2e4`, 2026-07-03 | 21 | Content production and publishing — **most need `bun` plus credentials** |
 
+## Tools
+
+| Path | What it is |
+| --- | --- |
+| [`probability-weight-calculator/`](./probability-weight-calculator) | Static web app: pick a goal (考研 / 保研 / 就业), weigh the things you're evaluating (CET, GPA, competitions, internships, …), and get a weighted success-probability estimate. Pure client-side, no backend, no API key. Deployed via GitHub Pages — see `.github/workflows/deploy-probability-weight-calculator.yml`. |
+
 ## taste-skill
 
 | Directory | Skill name | What it does |

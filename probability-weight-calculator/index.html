@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>目标成功率评估器</title>
+<meta name="description" content="根据你的目标（考研 / 保研 / 就业），为你输入的各项能力自动分配合理权重，估算综合成功率。" />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<header class="page-header">
+  <div class="wrap">
+    <h1>目标成功率评估器</h1>
+    <p class="subtitle">选定目标 → 勾选你要评估的内容 → 打分 → 自动生成权重与成功率</p>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- Step 1: 目标 -->
+  <section class="card" id="step-goal">
+    <h2><span class="step-no">1</span>选择你的目标</h2>
+    <div class="goal-grid" id="goal-grid"><!-- JS 渲染 --></div>
+    <p class="goal-tagline" id="goal-tagline"></p>
+  </section>
+
+  <!-- Step 2: 评估项与打分 -->
+  <section class="card" id="step-items" hidden>
+    <h2><span class="step-no">2</span>勾选要评估的内容并打分</h2>
+    <p class="hint-text">勾选后会出现评分滑块，请按你当前的真实水平自评「相对同类竞争者的竞争力」，0 表示明显落后，100 表示非常突出。</p>
+    <div class="item-list" id="item-list"><!-- JS 渲染 --></div>
+
+    <div class="custom-item-box">
+      <h3>添加自定义评估项</h3>
+      <div class="custom-item-form">
+        <input type="text" id="custom-name" placeholder="例如：竞赛国家级二等奖 / 双学位 / 海外交换…" maxlength="30" />
+        <select id="custom-importance">
+          <option value="low">对目标：影响较小</option>
+          <option value="medium" selected>对目标：影响中等</option>
+          <option value="high">对目标：影响较大</option>
+        </select>
+        <button type="button" id="add-custom-btn">+ 添加</button>
+      </div>
+      <ul class="custom-item-tags" id="custom-item-tags"></ul>
+    </div>
+  </section>
+
+  <!-- Step 3: 目标难度 -->
+  <section class="card" id="step-difficulty" hidden>
+    <h2><span class="step-no">3</span>设定目标的竞争难度</h2>
+    <p class="hint-text">同样的能力水平，冲击顶尖名校/热门大厂，和冲击普通院校/常规岗位，成功率并不相同。</p>
+    <input type="range" id="difficulty-slider" min="1" max="5" step="1" value="3" />
+    <div class="difficulty-labels" id="difficulty-labels"></div>
+    <p class="difficulty-desc" id="difficulty-desc"></p>
+  </section>
+
+  <div class="generate-row" id="generate-row" hidden>
+    <button id="generate-btn" type="button">生成权重与成功率分析</button>
+    <p class="validation-msg" id="validation-msg"></p>
+  </div>
+
+  <!-- Results -->
+  <section class="card result-card" id="results" hidden>
+    <h2>分析结果</h2>
+
+    <div class="prob-block">
+      <div class="prob-number-wrap">
+        <span id="prob-number">--</span><span class="prob-percent">%</span>
+      </div>
+      <div class="prob-tag" id="prob-tag"></div>
+    </div>
+
+    <div class="chart-wrap">
+      <canvas id="weight-chart" height="260"></canvas>
+    </div>
+
+    <div class="analysis-block">
+      <div class="analysis-col" id="analysis-strength">
+        <h3>💪 你的优势项</h3>
+        <ul></ul>
+      </div>
+      <div class="analysis-col" id="analysis-gap">
+        <h3>🎯 建议优先提升</h3>
+        <ul></ul>
+      </div>
+    </div>
+
+    <div class="warnings" id="warnings"></div>
+
+    <p class="disclaimer">
+      免责声明：本工具的权重表与概率曲线基于经验性规则设计，用于帮助你理清「哪些事更值得投入精力」，
+      结果为主观自评辅助参考，<strong>不代表真实录取率、通过率或录用概率</strong>，
+      实际结果还受招生 / 招聘政策、当年竞争人数、复试 / 面试表现等更多因素影响。
+    </p>
+  </section>
+
+</main>
+
+<footer class="page-footer">
+  <div class="wrap">
+    <p>纯前端计算，数据只保存在你的浏览器里，不会上传到任何服务器。</p>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
