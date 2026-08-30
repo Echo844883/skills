@@ -700,13 +700,9 @@
       </div>
       <p class="lede">提醒要真正推到锁屏上，需要你先把三项权限交给这个页面。全部在本机生效，不上传任何东西。</p>
 
-      <div class="callout" id="inapp-callout" hidden>
-        <p class="callout-title">检测到你在 <span id="inapp-name">App 内置浏览器</span> 里打开</p>
-        <p class="callout-body">
-          这类内置浏览器不支持申请系统通知权限——这是它的限制，换不了。点右上角
-          「更多」或分享按钮找「在浏览器打开」；找不到就复制链接，粘贴到 Chrome 或
-          手机自带浏览器里打开，才能拿到通知权限。
-        </p>
+      <div class="callout" id="notify-callout" hidden>
+        <p class="callout-title" id="callout-title"></p>
+        <p class="callout-body" id="callout-body"></p>
         <button class="btn" id="btn-copy-link">复制本页链接</button>
       </div>
 
@@ -1023,10 +1019,24 @@
   }
   var inAppName = detectInApp();
 
-  function showInAppCallout() {
-    if (!inAppName) return;
-    $("inapp-name").textContent = inAppName;
-    $("inapp-callout").hidden = false;
+  // 两种没法靠代码解决的情况，文案不同：在别人 App 里打开的，指引去它自己的菜单；
+  // 独立浏览器本身就没实现 Notification API 的，指引换一个主流浏览器。
+  function showCallout(kind) {
+    var title, body;
+    if (kind === "inapp") {
+      title = "检测到你在" + inAppName + "里打开";
+      body = "这类内置浏览器不支持申请系统通知权限——这是它的限制，换不了。点右上角"
+           + "「更多」或分享按钮找「在浏览器打开」；找不到就复制链接，粘贴到 Chrome"
+           + " 或手机自带浏览器里打开，才能拿到通知权限。";
+    } else {
+      title = "这个浏览器本身不支持网页通知";
+      body = "不是这个页面的问题——是浏览器内核没实现这个功能，代码没法把它变出来。"
+           + "换成 Chrome 或 Firefox（Android 上这两个对网页通知支持最稳定），或者"
+           + "复制下面的链接，去应用商店装一个再打开。";
+    }
+    $("callout-title").textContent = title;
+    $("callout-body").textContent = body;
+    $("notify-callout").hidden = false;
   }
   $("btn-copy-link").addEventListener("click", function () {
     var url = location.href;
@@ -1069,7 +1079,7 @@
     $("frame-note").hidden = (s !== "framed");
     $("perm-fallback").hidden = (s === "granted");
     $("perm-warn").hidden = (s === "granted");
-    if (s === "unsupported" && inAppName) showInAppCallout();
+    if (s === "unsupported") showCallout(inAppName ? "inapp" : "browser");
   }
 
   $("req-notify").addEventListener("click", function () {
@@ -1084,7 +1094,7 @@
     } catch (e) { paintPerm(); }
     if (inAppName) {
       setTimeout(function () {
-        if (Notification.permission === "default") showInAppCallout();
+        if (Notification.permission === "default") showCallout("inapp");
       }, 3500);
     }
   });

@@ -3,7 +3,7 @@
 //
 // 修改 index.html 后，把下面的版本号加一，浏览器才会去换一份新的缓存，
 // 不然装过的用户会一直吃旧版本。
-const VERSION = "beacon-planner-v2";
+const VERSION = "beacon-planner-v3";
 const ASSETS = [
   "./",
   "./index.html",
