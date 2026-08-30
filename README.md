@@ -12,7 +12,7 @@
 
 | Path | What it is |
 | --- | --- |
-| [`probability-weight-calculator/`](./probability-weight-calculator) | Static web app: pick a goal (考研 / 保研 / 就业), weigh the things you're evaluating (CET, GPA, competitions, internships, …), and get a weighted success-probability estimate. Pure client-side, no backend, no API key. Live at [echo844883.github.io/skills/probability-weight-calculator/](https://echo844883.github.io/skills/probability-weight-calculator/) once GitHub Pages is enabled (see `.github/workflows/deploy-probability-weight-calculator.yml`). |
+| [`probability-weight-calculator/`](./probability-weight-calculator) | Static web app: pick a goal (考研 / 保研 / 就业), weigh the things you're evaluating (CET, GPA, competitions, internships, …), and get a weighted success-probability estimate. Pure client-side, no backend, no API key. Live at [echo844883.github.io/skills/probability-weight-calculator/](https://echo844883.github.io/skills/probability-weight-calculator/) — served directly from `main` via classic GitHub Pages (Settings → Pages → Source: Deploy from a branch → `main` / `/root`), no Actions workflow involved. |
 
 ## taste-skill
 
