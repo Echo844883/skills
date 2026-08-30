@@ -1,0 +1,11 @@
+{
+  "name": "biz-ledger",
+  "version": "1.0.0",
+  "private": true,
+  "description": "中国大陆小微企业记账与增值税/企业所得税测算工具（非官方申报系统）",
+  "license": "MIT",
+  "scripts": {
+    "test": "node --test test/core.test.js",
+    "build": "node build-hosted.js"
+  }
+}

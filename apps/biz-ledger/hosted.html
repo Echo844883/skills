@@ -1,0 +1,2752 @@
+<title>记账报税助手</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style id="app-css">
+/* ---------- 设计变量 ----------
+   主题有三种状态：显式 light / 显式 dark / 未标记（跟随系统）。
+   只写 @media 会漏掉查看器显式打的 data-theme，所以两种都要写。 */
+:root {
+  color-scheme: light dark;
+
+  /* 偏冷的中性色，和强调色（账本蓝）同一色相，比纯灰更像「选过的」 */
+  --bg: #f3f5f9;
+  --surface: #ffffff;
+  --surface-2: #edf0f6;
+  --border: #dfe3ec;
+  --border-strong: #c7ccd9;
+  --text: #131722;
+  --text-muted: #5c6474;
+  --text-faint: #8b93a3;
+
+  --accent: #2f4f92;
+  --accent-soft: rgba(47, 79, 146, 0.1);
+  --income: #0e8f74;
+  --income-soft: rgba(14, 143, 116, 0.12);
+  --expense: #c23b32;
+  --expense-soft: rgba(194, 59, 50, 0.12);
+  --advisory: #a2650a;
+  --advisory-soft: rgba(162, 101, 10, 0.12);
+
+  --radius: 12px;
+  --radius-sm: 8px;
+  --shadow: 0 1px 2px rgba(16, 18, 24, 0.05), 0 8px 24px rgba(16, 18, 24, 0.05);
+  --wrap: 1120px;
+
+  --font-text: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+               "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1216;
+    --surface: #171b22;
+    --surface-2: #1e232c;
+    --border: #2a303b;
+    --border-strong: #3b424f;
+    --text: #e7e9ee;
+    --text-muted: #99a1af;
+    --text-faint: #6c7482;
+
+    --accent: #7d9de8;
+    --accent-soft: rgba(125, 157, 232, 0.16);
+    --income: #3fbf98;
+    --income-soft: rgba(63, 191, 152, 0.15);
+    --expense: #f0796f;
+    --expense-soft: rgba(240, 121, 111, 0.15);
+    --advisory: #e0a542;
+    --advisory-soft: rgba(224, 165, 66, 0.16);
+
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 8px 24px rgba(0, 0, 0, 0.28);
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #0f1216;
+  --surface: #171b22;
+  --surface-2: #1e232c;
+  --border: #2a303b;
+  --border-strong: #3b424f;
+  --text: #e7e9ee;
+  --text-muted: #99a1af;
+  --text-faint: #6c7482;
+
+  --accent: #7d9de8;
+  --accent-soft: rgba(125, 157, 232, 0.16);
+  --income: #3fbf98;
+  --income-soft: rgba(63, 191, 152, 0.15);
+  --expense: #f0796f;
+  --expense-soft: rgba(240, 121, 111, 0.15);
+  --advisory: #e0a542;
+  --advisory-soft: rgba(224, 165, 66, 0.16);
+
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 8px 24px rgba(0, 0, 0, 0.28);
+}
+
+/* ---------- 基础 ---------- */
+* { box-sizing: border-box; }
+
+/* 平台包装层只存在于第一版；页面自发布后是完整文档，这些得自己带上 */
+[hidden] { display: none !important; }
+img { max-width: 100%; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.55 var(--font-text);
+  -webkit-font-smoothing: antialiased;
+}
+
+.wrap { max-width: var(--wrap); margin: 0 auto; padding: 0 20px; }
+
+h1, h2 { margin: 0; font-weight: 650; letter-spacing: -0.01em; }
+
+.sr-only {
+  position: absolute; width: 1px; height: 1px;
+  padding: 0; margin: -1px; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+.tnum, .stat-value, .record-amount, .day-head, .bar-value, .amount-cell,
+.count, #grossAmount, .filters select, .report-table td.num {
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-value, .record-amount, .amount-cell, #grossAmount, .report-table td.num {
+  font-family: var(--font-mono);
+  letter-spacing: -0.01em;
+}
+
+/* ---------- 顶栏与提示条 ---------- */
+.topbar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+.topbar-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  height: 60px;
+  flex-wrap: wrap;
+}
+
+.brand { font-size: 17px; }
+.topbar-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+
+.compliance-banner {
+  background: var(--advisory-soft);
+  color: var(--advisory);
+  border-bottom: 1px solid var(--border);
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+.compliance-banner .wrap { padding: 10px 20px; }
+.compliance-banner strong { color: inherit; }
+
+.banner { margin: 0; padding: 10px 20px; font-size: 13px; text-align: center; }
+.banner-warn { background: var(--expense-soft); color: var(--expense); }
+
+.notice {
+  margin: 0 0 14px;
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--advisory-soft);
+  color: var(--advisory);
+  font-size: 12.5px;
+}
+.notice-tight { margin: 14px 0 10px; }
+
+/* ---------- 按钮 ---------- */
+.btn {
+  font: inherit; font-size: 14px;
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, transform 0.05s;
+}
+.btn:hover { background: var(--surface-2); }
+.btn:active { transform: translateY(1px); }
+.btn:focus-visible, input:focus-visible, select:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px;
+}
+.btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; padding: 10px 22px; }
+.btn-primary:hover { filter: brightness(1.08); }
+.btn-ghost { background: transparent; }
+.btn-danger { color: var(--expense); border-color: transparent; }
+.btn-danger:hover { background: var(--expense-soft); }
+
+/* ---------- 卡片通用 ---------- */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 20px;
+  margin-top: 20px;
+}
+.card:first-of-type { margin-top: 24px; }
+.card-title { font-size: 15px; white-space: nowrap; }
+/* 侧栏较窄时标题和右侧的期间选择器放不到一行，让选择器换到下一行，
+   而不是把标题文字硬挤断行（中文换行不需要空格，挤压时很容易断词）。 */
+.card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px 12px; flex-wrap: wrap; }
+.count { color: var(--text-faint); font-size: 13px; }
+
+/* ---------- 税务参数面板 ---------- */
+.settings-card { padding: 0; overflow: hidden; }
+.settings-toggle {
+  width: 100%;
+  display: flex; align-items: center; gap: 10px;
+  padding: 16px 20px;
+  background: none; border: 0; cursor: pointer;
+  font: inherit; color: inherit; text-align: left;
+}
+.settings-summary { flex: 1; color: var(--text-muted); font-size: 13px; }
+.chevron { color: var(--text-faint); transition: transform 0.15s; }
+.settings-toggle[aria-expanded="true"] .chevron { transform: rotate(90deg); }
+.settings-body { padding: 0 20px 20px; }
+
+.field-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-bottom: 14px; }
+.field-row-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+.advanced { margin: 4px 0 16px; }
+.advanced summary { cursor: pointer; font-size: 13px; color: var(--text-muted); padding: 4px 0; }
+.advanced[open] summary { color: var(--text); }
+.advanced .field-row { margin-top: 12px; }
+
+.save-hint { font-size: 13px; color: var(--income); }
+
+/* ---------- 表单元件 ---------- */
+.field { margin-bottom: 14px; }
+.field label { display: block; font-size: 13px; font-weight: 600; color: var(--text-muted); margin-bottom: 6px; }
+.optional { font-weight: 400; color: var(--text-faint); }
+
+input[type="text"], input[type="search"], input[type="date"], select {
+  width: 100%; font: inherit;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text);
+}
+input::placeholder { color: var(--text-faint); }
+
+.segmented { display: inline-flex; background: var(--surface-2); border-radius: var(--radius-sm); padding: 3px; }
+.segment input { position: absolute; opacity: 0; pointer-events: none; }
+.segment span {
+  display: block; padding: 7px 22px; border-radius: 6px;
+  font-size: 14px; font-weight: 600; color: var(--text-muted); cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.segment-expense input:checked + span { background: var(--surface); color: var(--expense); box-shadow: var(--shadow); }
+.segment-income input:checked + span { background: var(--surface); color: var(--income); box-shadow: var(--shadow); }
+.segmented .segment:not(.segment-expense):not(.segment-income) input:checked + span { background: var(--surface); color: var(--accent); box-shadow: var(--shadow); }
+.segment input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.form-card .field-row { grid-template-columns: minmax(0, 1fr) 200px; align-items: start; }
+.form-card .field-row + .field-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+
+.amount-input { position: relative; }
+.amount-input .currency { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-faint); font-size: 18px; }
+#grossAmount { padding-left: 30px; font-size: 22px; font-weight: 650; }
+
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 14px; }
+.chip {
+  font: inherit; font-size: 13px; padding: 4px 11px;
+  border-radius: 999px; border: 1px solid var(--border);
+  background: var(--surface-2); color: var(--text-muted); cursor: pointer;
+}
+.chip:hover { border-color: var(--border-strong); color: var(--text); }
+.chip[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+
+.tax-preview {
+  display: flex; gap: 18px; flex-wrap: wrap;
+  padding: 10px 12px; margin-bottom: 14px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  font-size: 13px; color: var(--text-muted);
+}
+.tax-preview b { font-family: var(--font-mono); color: var(--text); }
+
+.error { min-height: 16px; margin: 4px 0 0; font-size: 12px; color: var(--expense); }
+.field input[aria-invalid="true"] { border-color: var(--expense); }
+.form-actions { display: flex; gap: 10px; align-items: center; margin-top: 4px; }
+
+/* ---------- 汇总卡 ---------- */
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 20px 0; }
+.stat { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; box-shadow: var(--shadow); }
+.stat-label { display: block; font-size: 12px; color: var(--text-muted); }
+.stat-value { display: block; margin-top: 4px; font-size: 21px; font-weight: 650; letter-spacing: -0.02em; }
+.stat-income .stat-value { color: var(--income); }
+.stat-expense .stat-value { color: var(--expense); }
+
+/* ---------- 布局 ---------- */
+.columns { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.side { display: grid; gap: 0; }
+.side .card:first-child { margin-top: 0; }
+
+/* ---------- 明细列表 ---------- */
+.filters { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 4px; }
+.filters select { width: auto; flex: 0 0 auto; font-size: 13px; padding: 7px 10px; }
+.filters input[type="search"] { flex: 1 1 150px; min-width: 0; font-size: 13px; padding: 7px 10px; }
+
+.records { list-style: none; margin: 8px 0 0; padding: 0; }
+.day-head { display: flex; justify-content: space-between; align-items: baseline; padding: 14px 2px 6px; font-size: 12px; color: var(--text-faint); border-bottom: 1px solid var(--border); }
+.day-head .day-sum { font-variant-numeric: tabular-nums; }
+
+.record { display: flex; align-items: flex-start; gap: 12px; padding: 11px 2px; border-bottom: 1px solid var(--border); }
+.record:hover { background: var(--surface-2); }
+.record-main { flex: 1; min-width: 0; }
+.record-category { font-weight: 600; }
+.record-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 3px; font-size: 12px; color: var(--text-muted); }
+.record-note { font-size: 13px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; }
+.tag { padding: 1px 7px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--border); }
+.tag-special { color: var(--accent); border-color: var(--accent-soft); background: var(--accent-soft); }
+
+.record-amount { text-align: right; white-space: nowrap; }
+.record-amount .gross { font-weight: 650; font-family: var(--font-mono); }
+.record-amount.income .gross { color: var(--income); }
+.record-amount.expense .gross { color: var(--expense); }
+.record-amount .tax { display: block; font-size: 11px; color: var(--text-faint); font-family: var(--font-mono); }
+
+.record-actions { display: flex; gap: 2px; opacity: 0; transition: opacity 0.15s; }
+.record:hover .record-actions, .record:focus-within .record-actions { opacity: 1; }
+.icon-btn { font: inherit; font-size: 13px; padding: 5px 9px; border: 0; border-radius: 6px; background: transparent; color: var(--text-muted); cursor: pointer; }
+.icon-btn:hover { background: var(--surface-2); color: var(--text); }
+.icon-btn.danger:hover { background: var(--expense-soft); color: var(--expense); }
+.icon-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+.empty { padding: 32px 8px; text-align: center; color: var(--text-faint); font-size: 14px; }
+
+/* ---------- 报表 ---------- */
+.report-table { width: 100%; border-collapse: collapse; font-size: 13.5px; margin-top: 6px; }
+.report-table td { padding: 6px 0; border-bottom: 1px dashed var(--border); }
+.report-table td.label { color: var(--text-muted); }
+.report-table td.num { text-align: right; }
+.report-table tr.total td { border-bottom: none; border-top: 1px solid var(--border-strong); padding-top: 9px; font-weight: 650; }
+.report-table tr.total td.num { color: var(--accent); }
+
+.report-note { margin-top: 10px; font-size: 12px; color: var(--text-faint); line-height: 1.55; }
+.pill { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+.pill-ok { background: var(--income-soft); color: var(--income); }
+.pill-warn { background: var(--advisory-soft); color: var(--advisory); }
+.pill-due { background: var(--expense-soft); color: var(--expense); }
+
+.advisory-item { padding: 9px 10px; margin-top: 8px; border-radius: var(--radius-sm); background: var(--advisory-soft); font-size: 12.5px; color: var(--advisory); }
+.advisory-item b { font-family: var(--font-mono); }
+
+.mini-stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 4px; }
+.mini-stat { padding: 10px; border-radius: var(--radius-sm); background: var(--surface-2); }
+.mini-stat .n { display: block; font-family: var(--font-mono); font-size: 17px; font-weight: 650; }
+.mini-stat .l { font-size: 12px; color: var(--text-muted); }
+
+/* ---------- 页脚与提示 ---------- */
+.footer { padding-top: 24px; padding-bottom: 40px; color: var(--text-faint); font-size: 12px; text-align: center; }
+.toast {
+  position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%);
+  background: var(--text); color: var(--bg);
+  padding: 10px 18px; border-radius: 999px; font-size: 14px;
+  box-shadow: var(--shadow); z-index: 50; max-width: calc(100vw - 40px);
+}
+
+/* ---------- 托管版专有：同步状态与复制面板 ---------- */
+.sync-badge {
+  font: inherit; font-size: 13px;
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 8px 13px; border-radius: 999px;
+  border: 1px solid var(--border); background: var(--surface-2); color: var(--text-muted);
+  cursor: default;
+}
+.sync-badge::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; flex: 0 0 auto; }
+.sync-badge.is-ok { color: var(--income); }
+.sync-badge.is-busy { color: var(--accent); }
+.sync-badge.is-warn { color: var(--text-muted); }
+.sync-badge.is-error { color: var(--expense); cursor: pointer; border-color: var(--expense); }
+.sync-badge.is-error:hover { background: var(--expense-soft); }
+.sync-badge.is-busy::before { animation: pulse 1.1s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: 0.25; } }
+
+.copy-panel {
+  position: fixed; inset: auto 16px 16px 16px; max-width: 560px; margin: 0 auto;
+  display: flex; flex-direction: column; gap: 10px; padding: 16px;
+  background: var(--surface); border: 1px solid var(--border-strong);
+  border-radius: var(--radius); box-shadow: var(--shadow); z-index: 60;
+}
+.copy-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.copy-panel textarea {
+  width: 100%; height: 180px; resize: vertical;
+  font-family: var(--font-mono); font-size: 12px; line-height: 1.5; padding: 10px;
+  border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface-2); color: var(--text);
+}
+
+/* ---------- 响应式 ---------- */
+@media (max-width: 900px) {
+  .columns { grid-template-columns: minmax(0, 1fr); }
+  .field-row, .field-row-3 { grid-template-columns: minmax(0, 1fr); }
+  .form-card .field-row + .field-row { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-width: 560px) {
+  .topbar-inner { height: auto; padding: 12px 0; flex-direction: column; align-items: stretch; }
+  .stats { grid-template-columns: minmax(0, 1fr); }
+  .record-actions { opacity: 1; }
+  .stat-value { font-size: 19px; }
+  .mini-stats { grid-template-columns: 1fr; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; }
+  .sync-badge.is-busy::before { animation: none; }
+}
+
+</style>
+
+<template id="app-shell">
+<header class="topbar">
+  <div class="wrap topbar-inner">
+    <h1 class="brand"><span aria-hidden="true">📒</span> 记账报税助手</h1>
+    <div class="topbar-actions">
+      <button type="button" class="btn btn-ghost" id="export-csv">导出 CSV</button>
+      <button type="button" class="btn btn-ghost" id="import-csv">导入 CSV</button>
+      <input type="file" id="file-input" accept=".csv,text/csv" hidden>
+      <button type="button" class="btn btn-ghost btn-danger" id="clear-all">清空</button>
+    </div>
+  </div>
+</header>
+
+<div class="compliance-banner">
+  <div class="wrap">
+    <strong>这是记账与税额测算工具，不是官方申报系统。</strong>
+    税率、起征点、扣除比例等参数均为可编辑的示例值，请核实最新政策后调整；
+    正式申报前请以电子税务局或税务师确认的数字为准。
+  </div>
+</div>
+
+<p class="banner banner-warn" id="storage-warning" hidden>
+  浏览器不允许本站保存数据（隐私模式或站点数据被禁用），这次录入的内容关掉页面就会丢失。
+</p>
+
+<main class="wrap">
+
+  <section class="card settings-card">
+    <button type="button" class="card-head settings-toggle" id="settings-toggle" aria-expanded="false" aria-controls="settings-body">
+      <h2 class="card-title">纳税人与税务参数</h2>
+      <span class="settings-summary" id="settings-summary"></span>
+      <span class="chevron" aria-hidden="true">›</span>
+    </button>
+
+    <div id="settings-body" class="settings-body" hidden>
+      <p class="notice">以下数值为示例，不代表当前有效政策，请核实后修改。</p>
+
+      <div class="field-row">
+        <div class="field">
+          <label>纳税人类型</label>
+          <div class="segmented" role="radiogroup" aria-label="纳税人类型">
+            <label class="segment"><input type="radio" name="taxpayerType" value="small" checked><span>小规模纳税人</span></label>
+            <label class="segment"><input type="radio" name="taxpayerType" value="general"><span>一般纳税人</span></label>
+          </div>
+        </div>
+        <div class="field">
+          <label>申报周期</label>
+          <div class="segmented" role="radiogroup" aria-label="申报周期">
+            <label class="segment"><input type="radio" name="period" value="month" checked><span>按月</span></label>
+            <label class="segment"><input type="radio" name="period" value="quarter"><span>按季</span></label>
+          </div>
+        </div>
+      </div>
+
+      <div class="field-row" id="settings-small-fields">
+        <div class="field">
+          <label for="s-vat-small-rate">增值税征收率 (%)</label>
+          <input type="text" id="s-vat-small-rate" inputmode="decimal">
+          <p class="error" id="s-vat-small-rate-error" role="alert"></p>
+        </div>
+        <div class="field">
+          <label for="s-vat-threshold-month">月销售额起征点 (元)</label>
+          <input type="text" id="s-vat-threshold-month" inputmode="decimal">
+          <p class="error" id="s-vat-threshold-month-error" role="alert"></p>
+        </div>
+        <div class="field">
+          <label for="s-vat-threshold-quarter">季度销售额起征点 (元)</label>
+          <input type="text" id="s-vat-threshold-quarter" inputmode="decimal">
+          <p class="error" id="s-vat-threshold-quarter-error" role="alert"></p>
+        </div>
+      </div>
+
+      <div class="field-row" id="settings-general-fields" hidden>
+        <div class="field">
+          <label for="s-vat-opening-credit">期初留抵税额 (元)</label>
+          <input type="text" id="s-vat-opening-credit" inputmode="decimal">
+          <p class="error" id="s-vat-opening-credit-error" role="alert"></p>
+        </div>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="s-surtax-rate">附加税合计比例 (%)</label>
+          <input type="text" id="s-surtax-rate" inputmode="decimal">
+          <p class="error" id="s-surtax-rate-error" role="alert"></p>
+        </div>
+      </div>
+
+      <p class="notice notice-tight">企业所得税分档税率——应纳税所得额在下方上限以内的部分按低档税率计算，超出部分按高档税率计算：</p>
+      <div class="field-row field-row-3">
+        <div class="field">
+          <label for="s-cit-cap">低档上限 (元)</label>
+          <input type="text" id="s-cit-cap" inputmode="decimal">
+          <p class="error" id="s-cit-cap-error" role="alert"></p>
+        </div>
+        <div class="field">
+          <label for="s-cit-low">低档税率 (%)</label>
+          <input type="text" id="s-cit-low" inputmode="decimal">
+          <p class="error" id="s-cit-low-error" role="alert"></p>
+        </div>
+        <div class="field">
+          <label for="s-cit-high">高档税率 (%)</label>
+          <input type="text" id="s-cit-high" inputmode="decimal">
+          <p class="error" id="s-cit-high-error" role="alert"></p>
+        </div>
+      </div>
+
+      <details class="advanced">
+        <summary>进阶：扣除限额参数（仅用于提示，不改变测算数字）</summary>
+        <div class="field-row field-row-3">
+          <div class="field">
+            <label for="s-entertain-rate">业务招待费可扣比例 (%)</label>
+            <input type="text" id="s-entertain-rate" inputmode="decimal">
+            <p class="error" id="s-entertain-rate-error" role="alert"></p>
+          </div>
+          <div class="field">
+            <label for="s-entertain-cap">业务招待费收入占比上限 (%)</label>
+            <input type="text" id="s-entertain-cap" inputmode="decimal">
+            <p class="error" id="s-entertain-cap-error" role="alert"></p>
+          </div>
+          <div class="field">
+            <label for="s-ad-cap">广告宣传费收入占比上限 (%)</label>
+            <input type="text" id="s-ad-cap" inputmode="decimal">
+            <p class="error" id="s-ad-cap-error" role="alert"></p>
+          </div>
+        </div>
+      </details>
+
+      <div class="form-actions">
+        <button type="button" class="btn btn-primary" id="settings-save">保存参数</button>
+        <span class="save-hint" id="settings-save-hint" role="status" aria-live="polite"></span>
+      </div>
+    </div>
+  </section>
+
+  <section class="card form-card" aria-labelledby="form-title">
+    <h2 class="card-title" id="form-title">记一笔</h2>
+    <form id="record-form" novalidate>
+      <input type="hidden" id="record-id">
+
+      <div class="segmented" role="radiogroup" aria-label="收支方向">
+        <label class="segment segment-expense">
+          <input type="radio" name="direction" value="expense" checked>
+          <span>支出</span>
+        </label>
+        <label class="segment segment-income">
+          <input type="radio" name="direction" value="income">
+          <span>收入</span>
+        </label>
+      </div>
+
+      <div class="field-row">
+        <div class="field field-amount">
+          <label for="grossAmount">价税合计</label>
+          <div class="amount-input">
+            <span class="currency" aria-hidden="true">¥</span>
+            <input type="text" id="grossAmount" inputmode="decimal" placeholder="0.00" autocomplete="off">
+          </div>
+          <p class="error" id="grossAmount-error" role="alert"></p>
+        </div>
+        <div class="field field-date">
+          <label for="date">日期</label>
+          <input type="date" id="date">
+          <p class="error" id="date-error" role="alert"></p>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>税率</label>
+        <div class="chips" id="rate-chips"></div>
+        <input type="text" id="taxRate" inputmode="decimal" placeholder="自定义税率，如 1.5" autocomplete="off" style="margin-top:8px">
+        <p class="error" id="taxRate-error" role="alert"></p>
+      </div>
+
+      <div class="tax-preview" id="tax-preview" aria-live="polite"></div>
+
+      <div class="field">
+        <label>发票类型</label>
+        <div class="chips" id="invoice-chips"></div>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="counterparty">往来单位 <span class="optional">选填</span></label>
+          <input type="text" id="counterparty" maxlength="60" placeholder="客户或供应商名称" autocomplete="off">
+          <p class="error" id="counterparty-error" role="alert"></p>
+        </div>
+        <div class="field">
+          <label for="invoiceNo">发票号 <span class="optional">选填</span></label>
+          <input type="text" id="invoiceNo" maxlength="40" autocomplete="off">
+          <p class="error" id="invoiceNo-error" role="alert"></p>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="category">科目</label>
+        <input type="text" id="category" list="category-options" placeholder="选择或自己输入" autocomplete="off" maxlength="20">
+        <datalist id="category-options"></datalist>
+        <p class="error" id="category-error" role="alert"></p>
+      </div>
+      <div class="chips" id="category-chips"></div>
+
+      <div class="field">
+        <label for="note">备注 <span class="optional">选填</span></label>
+        <input type="text" id="note" maxlength="200" placeholder="比如：8 月办公室房租" autocomplete="off">
+        <p class="error" id="note-error" role="alert"></p>
+      </div>
+
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary" id="submit-btn">保存</button>
+        <button type="button" class="btn btn-ghost" id="cancel-edit" hidden>取消修改</button>
+      </div>
+    </form>
+  </section>
+
+  <section class="stats" aria-label="本期汇总">
+    <div class="stat stat-income">
+      <span class="stat-label">当前筛选·收入（不含税）</span>
+      <strong class="stat-value" id="stat-income">¥0.00</strong>
+    </div>
+    <div class="stat stat-expense">
+      <span class="stat-label">当前筛选·支出（不含税）</span>
+      <strong class="stat-value" id="stat-expense">¥0.00</strong>
+    </div>
+    <div class="stat stat-balance">
+      <span class="stat-label">当前筛选·利润</span>
+      <strong class="stat-value" id="stat-profit">¥0.00</strong>
+    </div>
+  </section>
+
+  <div class="columns">
+
+    <section class="card" aria-labelledby="list-title">
+      <div class="card-head">
+        <h2 class="card-title" id="list-title">明细</h2>
+        <span class="count" id="record-count"></span>
+      </div>
+
+      <div class="filters">
+        <label class="sr-only" for="filter-period">期间</label>
+        <select id="filter-period"></select>
+
+        <label class="sr-only" for="filter-direction">方向</label>
+        <select id="filter-direction">
+          <option value="all">全部收支</option>
+          <option value="expense">只看支出</option>
+          <option value="income">只看收入</option>
+        </select>
+
+        <label class="sr-only" for="filter-category">科目</label>
+        <select id="filter-category"></select>
+
+        <label class="sr-only" for="filter-invoice">发票</label>
+        <select id="filter-invoice">
+          <option value="all">全部发票类型</option>
+          <option value="special">增值税专用发票</option>
+          <option value="general">普通发票</option>
+          <option value="none">无票</option>
+        </select>
+
+        <label class="sr-only" for="filter-keyword">搜索</label>
+        <input type="search" id="filter-keyword" placeholder="搜科目 / 往来单位 / 发票号 / 备注" autocomplete="off">
+      </div>
+
+      <ul class="records" id="record-list"></ul>
+      <p class="empty" id="empty-state" hidden></p>
+    </section>
+
+    <aside class="side">
+      <section class="card" aria-labelledby="vat-title">
+        <div class="card-head">
+          <h2 class="card-title" id="vat-title">增值税测算</h2>
+          <select id="vat-period"></select>
+        </div>
+        <div id="vat-report"></div>
+      </section>
+
+      <section class="card" aria-labelledby="surtax-title">
+        <h2 class="card-title" id="surtax-title">附加税测算</h2>
+        <div id="surtax-report"></div>
+      </section>
+
+      <section class="card" aria-labelledby="cit-title">
+        <div class="card-head">
+          <h2 class="card-title" id="cit-title">企业所得税测算（年度）</h2>
+          <select id="cit-year"></select>
+        </div>
+        <div id="cit-report"></div>
+      </section>
+
+      <section class="card" aria-labelledby="invoice-title">
+        <h2 class="card-title" id="invoice-title">发票概览</h2>
+        <div id="invoice-report"></div>
+      </section>
+    </aside>
+
+  </div>
+</main>
+
+<footer class="wrap footer">
+  <p>数据默认只存在这台设备的浏览器里，不会上传到任何服务器（云端同步版本除外，见页面顶部同步状态）。测算结果不构成税务建议，正式申报请以官方系统或税务师核实的数字为准。</p>
+</footer>
+
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+</template>
+
+<div id="app"></div>
+
+<script type="application/json" id="app-data">{"version":1,"records":[],"settings":null}</script>
+
+<script id="app-js">
+/**
+ * 记账 + 报税测算核心逻辑：纯函数，不碰 DOM、不碰存储。
+ * 浏览器里挂到 window.Ledger，Node 里 require 拿到同一个对象，方便测试。
+ *
+ * 两条贯穿全文件的规则：
+ *
+ * 1. 金额一律以「分」为单位的整数保存。浮点数做钱的加减会有
+ *    0.1 + 0.2 !== 0.3 这类误差，记多了肯定对不上账。
+ *
+ * 2. 本文件不允许出现任何写死的「现行政策」数字（税率、起征点、优惠幅度）。
+ *    所有这类参数都通过调用方传入的 settings 对象给出，默认值只在 UI 层
+ *    以「示例值，请核实最新政策」的样子出现。中国的增值税征收率、小微企业
+ *    所得税优惠、起征点几乎每年都在调，写死在逻辑里过一阵就是错的。
+ *
+ * 这个工具算的是「测算」——用于自己核对、给会计提供数据、辅助决策，
+ * 不是官方申报系统，也不追求覆盖全部纳税调整规则。复杂的限额扣除、
+ * 亏损结转、跨年度事项都在文档里明确说了没做，而不是悄悄假装做了。
+ */
+(function (root, factory) {
+  if (typeof module === 'object' && module.exports) {
+    module.exports = factory();
+  } else {
+    root.Ledger = factory();
+  }
+})(typeof self !== 'undefined' ? self : this, function () {
+  'use strict';
+
+  var DIRECTIONS = ['income', 'expense'];
+  var INVOICE_TYPES = ['none', 'general', 'special']; // 无票 / 普通发票 / 增值税专用发票
+  var TAXPAYER_TYPES = ['small', 'general']; // 小规模纳税人 / 一般纳税人
+  var PERIOD_TYPES = ['month', 'quarter'];
+
+  var DEFAULT_CATEGORIES = {
+    income: ['主营业务收入', '其他业务收入', '利息收入', '其他收入'],
+    expense: [
+      '主营业务成本', '采购成本', '人员薪酬', '社保公积金', '房租物业',
+      '水电网络', '办公费', '交通费', '业务招待费', '广告宣传费',
+      '咨询服务费', '折旧摊销', '税金及附加', '财务费用', '其他费用'
+    ]
+  };
+
+  var COMMON_RATES = [13, 9, 6, 5, 3, 1, 0];
+
+  /**
+   * 一套「示例」税务参数——数值仅供界面展示默认值和测试用，
+   * 不代表当前有效政策。UI 层永远要在旁边提示核实。
+   */
+  var EXAMPLE_SETTINGS = {
+    taxpayerType: 'small',
+    period: 'month',
+    vatSmallRate: 1, // 小规模纳税人增值税征收率（示例，政策常在 1% / 3% 间调整）
+    vatSmallThresholdMonth: 10000000, // 月不含税销售额起征点，示例 10 万元（单位：分）
+    vatSmallThresholdQuarter: 30000000, // 季度起征点，示例 30 万元
+    vatOpeningCredit: 0, // 一般纳税人期初留抵税额（分）
+    surtaxRate: 12, // 城建税 + 教育费附加 + 地方教育费附加 合计比例（示例，各地不同）
+    citBrackets: [
+      { upTo: 300000000, rate: 5 }, // 示例：应纳税所得额 300 万元（=300,000,000 分）以下部分
+      { upTo: null, rate: 25 }
+    ],
+    entertainmentDeductRate: 60, // 业务招待费按发生额的比例可扣除（示例 60%）
+    entertainmentRevenueCap: 0.5, // 业务招待费扣除上限＝收入的该比例（示例 0.5%）
+    adRevenueCap: 15 // 广告宣传费扣除上限＝收入的该比例（示例 15%，行业不同差异很大）
+  };
+
+  // ---------- 金额 ----------
+
+  function parseAmount(input) {
+    if (typeof input === 'number') {
+      if (!isFinite(input)) return null;
+      return Math.round(input * 100);
+    }
+    if (typeof input !== 'string') return null;
+    var text = input.trim().replace(/[,，\s]/g, '');
+    if (text === '' || !/^\d*(\.\d*)?$/.test(text) || text === '.') return null;
+    var cents = Math.round(parseFloat(text) * 100);
+    if (!isFinite(cents)) return null;
+    return cents;
+  }
+
+  function formatAmount(cents, options) {
+    var opts = options || {};
+    var negative = cents < 0;
+    var abs = Math.abs(Math.round(cents));
+    var yuan = Math.floor(abs / 100);
+    var fraction = String(abs % 100).padStart(2, '0');
+    var grouped = String(yuan).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    var text = grouped + '.' + fraction;
+    if (opts.sign === 'always' && !negative && cents !== 0) text = '+' + text;
+    return (negative ? '-' : '') + text;
+  }
+
+  function parseRate(input) {
+    var n = typeof input === 'number' ? input : parseFloat(String(input).trim());
+    if (!isFinite(n) || n < 0 || n > 100) return null;
+    return Math.round(n * 1000) / 1000; // 最多保留三位小数，够用又不会有诡异的浮点尾数
+  }
+
+  /**
+   * 由价税合计（发票上写的实际收付金额）按税率反推不含税金额和税额。
+   * 这是增值税专用发票上「金额 + 税额 = 价税合计」的逆运算。
+   */
+  function splitTax(grossCents, ratePercent) {
+    var rate = ratePercent / 100;
+    var net = Math.round(grossCents / (1 + rate));
+    var tax = grossCents - net;
+    return { net: net, tax: tax };
+  }
+
+  // ---------- 日期 ----------
+
+  function todayString(now) {
+    var d = now || new Date();
+    return (
+      d.getFullYear() +
+      '-' + String(d.getMonth() + 1).padStart(2, '0') +
+      '-' + String(d.getDate()).padStart(2, '0')
+    );
+  }
+
+  function isValidDate(text) {
+    if (typeof text !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(text)) return false;
+    var parts = text.split('-').map(Number);
+    var d = new Date(parts[0], parts[1] - 1, parts[2]);
+    return (
+      d.getFullYear() === parts[0] &&
+      d.getMonth() === parts[1] - 1 &&
+      d.getDate() === parts[2]
+    );
+  }
+
+  function monthOf(dateString) {
+    return String(dateString).slice(0, 7);
+  }
+
+  /** 日期所在季度，如 '2026-Q3'。 */
+  function quarterOf(dateString) {
+    var year = String(dateString).slice(0, 4);
+    var month = Number(String(dateString).slice(5, 7));
+    var q = Math.ceil(month / 3);
+    return year + '-Q' + q;
+  }
+
+  /** periodType 是 'month' 还是 'quarter'，取对应的分组 key。 */
+  function periodKeyOf(dateString, periodType) {
+    return periodType === 'quarter' ? quarterOf(dateString) : monthOf(dateString);
+  }
+
+  /** 季度 key（'2026-Q3'）第一天到最后一天，用于换算成月份范围时展示。 */
+  function quarterMonths(quarterKey) {
+    var year = quarterKey.slice(0, 4);
+    var q = Number(quarterKey.slice(6));
+    var start = (q - 1) * 3 + 1;
+    return [start, start + 1, start + 2].map(function (m) {
+      return year + '-' + String(m).padStart(2, '0');
+    });
+  }
+
+  // ---------- 是否可抵扣进项 ----------
+
+  /**
+   * 小规模纳税人不能抵扣进项税额（特殊情形如放弃减免、异常凭证等不在此列，
+   * 需要用户自行核实）；一般纳税人取得专用发票的支出默认可抵扣。
+   */
+  function isDeductible(direction, invoiceType, taxpayerType) {
+    if (direction !== 'expense') return false;
+    if (taxpayerType !== 'general') return false;
+    return invoiceType === 'special';
+  }
+
+  // ---------- 校验与创建 ----------
+
+  function validateTransaction(input, settings) {
+    var errors = {};
+    var raw = input || {};
+    var taxpayerType = (settings && settings.taxpayerType) || 'small';
+
+    if (DIRECTIONS.indexOf(raw.direction) === -1) errors.direction = '请选择收入或支出';
+
+    var gross = parseAmount(raw.grossAmount);
+    if (gross === null) errors.grossAmount = '金额格式不对，例如 1000.00';
+    else if (gross <= 0) errors.grossAmount = '金额要大于 0';
+    else if (gross > 999999999999) errors.grossAmount = '金额太大了';
+
+    var rate = parseRate(raw.taxRate == null || raw.taxRate === '' ? 0 : raw.taxRate);
+    if (rate === null) errors.taxRate = '税率应为 0~100 之间的数字';
+
+    var invoiceType = raw.invoiceType || 'none';
+    if (INVOICE_TYPES.indexOf(invoiceType) === -1) errors.invoiceType = '发票类型不对';
+
+    var category = String(raw.category == null ? '' : raw.category).trim();
+    if (category === '') errors.category = '请填写科目';
+    else if (category.length > 20) errors.category = '科目最多 20 个字';
+
+    var date = String(raw.date == null ? '' : raw.date).trim();
+    if (!isValidDate(date)) errors.date = '日期格式应为 YYYY-MM-DD';
+
+    var counterparty = String(raw.counterparty == null ? '' : raw.counterparty).trim();
+    if (counterparty.length > 60) errors.counterparty = '往来单位最多 60 个字';
+
+    var invoiceNo = String(raw.invoiceNo == null ? '' : raw.invoiceNo).trim();
+    if (invoiceNo.length > 40) errors.invoiceNo = '发票号最多 40 个字';
+
+    var note = String(raw.note == null ? '' : raw.note).trim();
+    if (note.length > 200) errors.note = '备注最多 200 个字';
+
+    var ok = Object.keys(errors).length === 0;
+    if (!ok) return { ok: false, errors: errors, value: null };
+
+    var split = splitTax(gross, rate);
+    return {
+      ok: true,
+      errors: {},
+      value: {
+        direction: raw.direction,
+        date: date,
+        category: category,
+        counterparty: counterparty,
+        invoiceType: invoiceType,
+        invoiceNo: invoiceNo,
+        taxRate: rate,
+        grossAmount: gross,
+        netAmount: split.net,
+        taxAmount: split.tax,
+        deductible: isDeductible(raw.direction, invoiceType, taxpayerType),
+        note: note
+      }
+    };
+  }
+
+  function makeId(now, random) {
+    var t = (now || Date.now()).toString(36);
+    var r = Math.floor((random == null ? Math.random() : random) * 1e8).toString(36);
+    return 'r' + t + r;
+  }
+
+  function createTransaction(input, settings, now) {
+    var result = validateTransaction(input, settings);
+    if (!result.ok) return result;
+    var stamp = now || Date.now();
+    result.value.id = input.id || makeId(stamp);
+    result.value.createdAt = input.createdAt || stamp;
+    return result;
+  }
+
+  // ---------- 汇总与筛选 ----------
+
+  function summarize(records) {
+    var s = {
+      incomeGross: 0, incomeNet: 0, incomeTax: 0,
+      expenseGross: 0, expenseNet: 0, expenseTax: 0,
+      count: (records || []).length
+    };
+    (records || []).forEach(function (r) {
+      if (r.direction === 'income') {
+        s.incomeGross += r.grossAmount; s.incomeNet += r.netAmount; s.incomeTax += r.taxAmount;
+      } else {
+        s.expenseGross += r.grossAmount; s.expenseNet += r.netAmount; s.expenseTax += r.taxAmount;
+      }
+    });
+    // 简化的账面利润：不含税收入 - 不含税成本费用。未考虑纳税调整事项。
+    s.profit = s.incomeNet - s.expenseNet;
+    return s;
+  }
+
+  function groupByCategory(records, direction) {
+    var totals = {};
+    var sum = 0;
+    (records || []).forEach(function (r) {
+      if (direction && r.direction !== direction) return;
+      totals[r.category] = (totals[r.category] || 0) + r.netAmount;
+      sum += r.netAmount;
+    });
+    return Object.keys(totals)
+      .map(function (category) {
+        return { category: category, total: totals[category], ratio: sum === 0 ? 0 : totals[category] / sum };
+      })
+      .sort(function (a, b) { return b.total - a.total || (a.category < b.category ? -1 : 1); });
+  }
+
+  function filterRecords(records, filters) {
+    var f = filters || {};
+    var keyword = (f.keyword || '').trim().toLowerCase();
+    return (records || [])
+      .filter(function (r) {
+        if (f.period && f.period !== 'all') {
+          var key = periodKeyOf(r.date, f.periodType || 'month');
+          if (key !== f.period) return false;
+        }
+        if (f.direction && f.direction !== 'all' && r.direction !== f.direction) return false;
+        if (f.category && f.category !== 'all' && r.category !== f.category) return false;
+        if (f.invoiceType && f.invoiceType !== 'all' && r.invoiceType !== f.invoiceType) return false;
+        if (keyword) {
+          var hay = (r.category + ' ' + r.counterparty + ' ' + (r.note || '') + ' ' + (r.invoiceNo || '')).toLowerCase();
+          if (hay.indexOf(keyword) === -1) return false;
+        }
+        return true;
+      })
+      .sort(function (a, b) {
+        if (a.date !== b.date) return a.date < b.date ? 1 : -1;
+        return (b.createdAt || 0) - (a.createdAt || 0);
+      });
+  }
+
+  /** 记录里出现过的period（月或季度）key，倒序。 */
+  function availablePeriods(records, periodType) {
+    var seen = {};
+    (records || []).forEach(function (r) { seen[periodKeyOf(r.date, periodType)] = true; });
+    return Object.keys(seen).sort().reverse();
+  }
+
+  // ---------- 增值税测算 ----------
+
+  /** 小规模纳税人：不含税销售额 × 征收率；未达起征点则免征。 */
+  function vatSmallScale(records, settings, periodKey, periodType) {
+    var incomeRecords = (records || []).filter(function (r) {
+      return r.direction === 'income' && periodKeyOf(r.date, periodType) === periodKey;
+    });
+    var netSales = incomeRecords.reduce(function (sum, r) { return sum + r.netAmount; }, 0);
+    var threshold = periodType === 'quarter'
+      ? settings.vatSmallThresholdQuarter
+      : settings.vatSmallThresholdMonth;
+    var belowThreshold = netSales < threshold;
+    var payable = belowThreshold ? 0 : Math.round(netSales * settings.vatSmallRate / 100);
+    return {
+      taxpayerType: 'small',
+      netSales: netSales,
+      rate: settings.vatSmallRate,
+      threshold: threshold,
+      belowThreshold: belowThreshold,
+      payable: payable
+    };
+  }
+
+  /**
+   * 一般纳税人：销项税额 - 可抵扣进项税额（含期初留抵），
+   * 差额为负则本期不缴税，结余部分结转为下期期初留抵。
+   */
+  function vatGeneralScale(records, settings, periodKey, periodType) {
+    var periodRecords = (records || []).filter(function (r) {
+      return periodKeyOf(r.date, periodType) === periodKey;
+    });
+    var outputTax = periodRecords
+      .filter(function (r) { return r.direction === 'income'; })
+      .reduce(function (sum, r) { return sum + r.taxAmount; }, 0);
+    var inputTax = periodRecords
+      .filter(function (r) { return r.direction === 'expense' && r.deductible; })
+      .reduce(function (sum, r) { return sum + r.taxAmount; }, 0);
+
+    var openingCredit = settings.vatOpeningCredit || 0;
+    var availableCredit = openingCredit + inputTax;
+    var payable = Math.max(0, outputTax - availableCredit);
+    var closingCredit = Math.max(0, availableCredit - outputTax);
+
+    return {
+      taxpayerType: 'general',
+      outputTax: outputTax,
+      inputTax: inputTax,
+      openingCredit: openingCredit,
+      availableCredit: availableCredit,
+      payable: payable,
+      closingCredit: closingCredit
+    };
+  }
+
+  function vatCalc(records, settings, periodKey, periodType) {
+    return settings.taxpayerType === 'general'
+      ? vatGeneralScale(records, settings, periodKey, periodType)
+      : vatSmallScale(records, settings, periodKey, periodType);
+  }
+
+  /** 附加税（城建税+教育费附加+地方教育费附加），以本期应纳增值税为计税基础。 */
+  function surtaxCalc(vatPayable, settings) {
+    var amount = Math.round(vatPayable * (settings.surtaxRate || 0) / 100);
+    return { base: vatPayable, rate: settings.surtaxRate || 0, amount: amount };
+  }
+
+  // ---------- 企业所得税测算 ----------
+
+  /** 阶梯（分段）税率速算：每一档只对超过前一档上限的部分按该档税率计算。 */
+  function bracketTax(amountCents, brackets) {
+    var sorted = (brackets || []).slice().sort(function (a, b) {
+      var ua = a.upTo == null ? Infinity : a.upTo;
+      var ub = b.upTo == null ? Infinity : b.upTo;
+      return ua - ub;
+    });
+    var lower = 0;
+    var tax = 0;
+    var detail = [];
+    for (var i = 0; i < sorted.length; i++) {
+      var upper = sorted[i].upTo == null ? Infinity : sorted[i].upTo;
+      var portion = Math.max(0, Math.min(amountCents, upper) - lower);
+      var portionTax = Math.round(portion * sorted[i].rate / 100);
+      if (portion > 0) detail.push({ from: lower, to: Math.min(amountCents, upper), rate: sorted[i].rate, tax: portionTax });
+      tax += portionTax;
+      lower = upper;
+      if (amountCents <= upper) break;
+    }
+    return { tax: tax, detail: detail };
+  }
+
+  /**
+   * 企业所得税测算：利润（不含税收入 - 不含税成本费用）作为应纳税所得额的
+   * 简化近似，未考虑任何纳税调整事项（如超标费用调增、免税收入调减等）——
+   * 这类调整规则多且常变，测算只给一个未调整的参考数，实际申报以纳税调整
+   * 后的数字为准。
+   */
+  function citCalc(records, settings) {
+    var s = summarize(records);
+    var taxableIncome = Math.max(0, s.profit); // 亏损年度应纳税所得额按 0 处理，不做以后年度弥补测算
+    var result = bracketTax(taxableIncome, settings.citBrackets);
+    return {
+      revenue: s.incomeNet,
+      costAndExpense: s.expenseNet,
+      profit: s.profit,
+      taxableIncome: taxableIncome,
+      tax: result.tax,
+      brackets: result.detail
+    };
+  }
+
+  /**
+   * 业务招待费 / 广告宣传费扣除限额——仅供参考，不改变企业所得税测算的
+   * 应纳税所得额（真实申报需要走纳税调整表）。
+   */
+  function deductionAdvisory(records, settings) {
+    var s = summarize(records);
+    var revenue = s.incomeNet;
+    var entertainment = groupByCategory(records, 'expense').find(function (g) { return g.category === '业务招待费'; });
+    var ad = groupByCategory(records, 'expense').find(function (g) { return g.category === '广告宣传费'; });
+    var advisories = [];
+
+    if (entertainment && entertainment.total > 0) {
+      var byRate = Math.round(entertainment.total * (settings.entertainmentDeductRate || 0) / 100);
+      var byRevenue = Math.round(revenue * (settings.entertainmentRevenueCap || 0) / 100);
+      var cap = Math.min(byRate, byRevenue);
+      advisories.push({
+        category: '业务招待费',
+        spent: entertainment.total,
+        cap: cap,
+        excess: Math.max(0, entertainment.total - cap),
+        rule: settings.entertainmentDeductRate + '% 与收入 ' + settings.entertainmentRevenueCap + '% 孰低'
+      });
+    }
+    if (ad && ad.total > 0) {
+      var adCap = Math.round(revenue * (settings.adRevenueCap || 0) / 100);
+      advisories.push({
+        category: '广告宣传费',
+        spent: ad.total,
+        cap: adCap,
+        excess: Math.max(0, ad.total - adCap),
+        rule: '收入的 ' + settings.adRevenueCap + '%'
+      });
+    }
+    return advisories;
+  }
+
+  // ---------- 税务参数校验 ----------
+
+  function parseNonNegativeAmount(input) {
+    var cents = parseAmount(input);
+    return cents !== null && cents >= 0 ? cents : null;
+  }
+
+  /**
+   * 校验并规整税务参数面板的输入。企业所得税阶梯在界面上简化成两档
+   * （低档上限 + 低档税率 + 高档税率），这里转成 citBrackets 数组。
+   */
+  function validateSettings(input) {
+    var errors = {};
+    var raw = input || {};
+
+    if (TAXPAYER_TYPES.indexOf(raw.taxpayerType) === -1) errors.taxpayerType = '请选择纳税人类型';
+    if (PERIOD_TYPES.indexOf(raw.period) === -1) errors.period = '请选择申报周期';
+
+    var vatSmallRate = parseRate(raw.vatSmallRate);
+    if (vatSmallRate === null) errors.vatSmallRate = '征收率应为 0~100 的数字';
+
+    var vatThresholdMonth = parseNonNegativeAmount(raw.vatSmallThresholdMonth);
+    if (vatThresholdMonth === null) errors.vatSmallThresholdMonth = '起征点金额不对';
+
+    var vatThresholdQuarter = parseNonNegativeAmount(raw.vatSmallThresholdQuarter);
+    if (vatThresholdQuarter === null) errors.vatSmallThresholdQuarter = '起征点金额不对';
+
+    var vatOpeningCredit = parseNonNegativeAmount(raw.vatOpeningCredit == null || raw.vatOpeningCredit === '' ? 0 : raw.vatOpeningCredit);
+    if (vatOpeningCredit === null) errors.vatOpeningCredit = '留抵税额不对';
+
+    var surtaxRate = parseRate(raw.surtaxRate);
+    if (surtaxRate === null) errors.surtaxRate = '附加税比例应为 0~100 的数字';
+
+    var citCap = parseNonNegativeAmount(raw.citBracketCap);
+    if (citCap === null) errors.citBracketCap = '分档上限金额不对';
+
+    var citLowRate = parseRate(raw.citLowRate);
+    if (citLowRate === null) errors.citLowRate = '税率应为 0~100 的数字';
+
+    var citHighRate = parseRate(raw.citHighRate);
+    if (citHighRate === null) errors.citHighRate = '税率应为 0~100 的数字';
+
+    var entertainmentDeductRate = parseRate(raw.entertainmentDeductRate);
+    if (entertainmentDeductRate === null) errors.entertainmentDeductRate = '比例应为 0~100 的数字';
+
+    var entertainmentRevenueCap = parseRate(raw.entertainmentRevenueCap);
+    if (entertainmentRevenueCap === null) errors.entertainmentRevenueCap = '比例应为 0~100 的数字';
+
+    var adRevenueCap = parseRate(raw.adRevenueCap);
+    if (adRevenueCap === null) errors.adRevenueCap = '比例应为 0~100 的数字';
+
+    var ok = Object.keys(errors).length === 0;
+    if (!ok) return { ok: false, errors: errors, value: null };
+
+    return {
+      ok: true,
+      errors: {},
+      value: {
+        taxpayerType: raw.taxpayerType,
+        period: raw.period,
+        vatSmallRate: vatSmallRate,
+        vatSmallThresholdMonth: vatThresholdMonth,
+        vatSmallThresholdQuarter: vatThresholdQuarter,
+        vatOpeningCredit: vatOpeningCredit,
+        surtaxRate: surtaxRate,
+        citBrackets: [
+          { upTo: citCap, rate: citLowRate },
+          { upTo: null, rate: citHighRate }
+        ],
+        entertainmentDeductRate: entertainmentDeductRate,
+        entertainmentRevenueCap: entertainmentRevenueCap,
+        adRevenueCap: adRevenueCap
+      }
+    };
+  }
+
+  /** 用示例值补全缺失字段，保证旧数据加载时不会因为少个字段就整体出错。 */
+  function normalizeSettings(input) {
+    var raw = input && typeof input === 'object' ? input : {};
+    var merged = Object.assign({}, EXAMPLE_SETTINGS, raw);
+    if (!Array.isArray(merged.citBrackets) || merged.citBrackets.length === 0) {
+      merged.citBrackets = EXAMPLE_SETTINGS.citBrackets;
+    }
+    return merged;
+  }
+
+  // ---------- CSV ----------
+
+  var CSV_HEADER = ['日期', '方向', '科目', '往来单位', '价税合计', '税率(%)', '发票类型', '发票号', '备注'];
+
+  function escapeCSVField(value) {
+    var text = String(value == null ? '' : value);
+    if (/[",\n\r]/.test(text)) return '"' + text.replace(/"/g, '""') + '"';
+    return text;
+  }
+
+  var INVOICE_LABEL = { none: '无票', general: '普通发票', special: '增值税专用发票' };
+  var INVOICE_LABEL_REVERSE = { '无票': 'none', '普通发票': 'general', '增值税专用发票': 'special', general: 'general', special: 'special', none: 'none' };
+
+  function toCSV(records) {
+    var lines = [CSV_HEADER.join(',')];
+    (records || []).forEach(function (r) {
+      lines.push([
+        escapeCSVField(r.date),
+        escapeCSVField(r.direction === 'income' ? '收入' : '支出'),
+        escapeCSVField(r.category),
+        escapeCSVField(r.counterparty || ''),
+        escapeCSVField(formatAmount(r.grossAmount).replace(/,/g, '')),
+        escapeCSVField(r.taxRate),
+        escapeCSVField(INVOICE_LABEL[r.invoiceType] || '无票'),
+        escapeCSVField(r.invoiceNo || ''),
+        escapeCSVField(r.note || '')
+      ].join(','));
+    });
+    return lines.join('\r\n');
+  }
+
+  function parseCSV(text) {
+    var rows = [];
+    var row = [];
+    var field = '';
+    var inQuotes = false;
+    var source = String(text).replace(/^﻿/, '');
+
+    for (var i = 0; i < source.length; i++) {
+      var ch = source[i];
+      if (inQuotes) {
+        if (ch === '"') {
+          if (source[i + 1] === '"') { field += '"'; i++; }
+          else inQuotes = false;
+        } else field += ch;
+        continue;
+      }
+      if (ch === '"') { inQuotes = true; continue; }
+      if (ch === ',') { row.push(field); field = ''; continue; }
+      if (ch === '\r') continue;
+      if (ch === '\n') { row.push(field); rows.push(row); row = []; field = ''; continue; }
+      field += ch;
+    }
+    row.push(field);
+    rows.push(row);
+    return rows.filter(function (r) { return r.length > 1 || r[0].trim() !== ''; });
+  }
+
+  function fromCSV(text, settings, now) {
+    var rows = parseCSV(text);
+    var records = [];
+    var errors = [];
+    if (rows.length === 0) return { records: records, errors: errors };
+
+    var start = rows[0][0] && rows[0][0].trim() === CSV_HEADER[0] ? 1 : 0;
+    for (var i = start; i < rows.length; i++) {
+      var cells = rows[i];
+      var lineNo = i + 1;
+      if (cells.length < 6) {
+        errors.push({ line: lineNo, message: '列数不足，至少需要 日期,方向,科目,往来单位,价税合计,税率' });
+        continue;
+      }
+      var directionText = (cells[1] || '').trim();
+      var direction = directionText === '收入' || directionText === 'income'
+        ? 'income'
+        : (directionText === '支出' || directionText === 'expense' ? 'expense' : '');
+      var invoiceTypeRaw = (cells[6] || '无票').trim();
+      var invoiceType = INVOICE_LABEL_REVERSE[invoiceTypeRaw] || 'none';
+
+      var result = createTransaction({
+        direction: direction,
+        date: (cells[0] || '').trim(),
+        category: cells[2],
+        counterparty: cells[3] || '',
+        grossAmount: cells[4],
+        taxRate: cells[5],
+        invoiceType: invoiceType,
+        invoiceNo: cells[7] || '',
+        note: cells[8] || ''
+      }, settings, now ? now + i : undefined);
+
+      if (!result.ok) {
+        var first = Object.keys(result.errors)[0];
+        errors.push({ line: lineNo, message: result.errors[first] });
+        continue;
+      }
+      records.push(result.value);
+    }
+    return { records: records, errors: errors };
+  }
+
+  function mergeRecords(existing, incoming) {
+    var seen = {};
+    var out = [];
+    (existing || []).concat(incoming || []).forEach(function (r) {
+      if (seen[r.id]) return;
+      seen[r.id] = true;
+      out.push(r);
+    });
+    return out;
+  }
+
+  return {
+    DIRECTIONS: DIRECTIONS,
+    INVOICE_TYPES: INVOICE_TYPES,
+    TAXPAYER_TYPES: TAXPAYER_TYPES,
+    PERIOD_TYPES: PERIOD_TYPES,
+    DEFAULT_CATEGORIES: DEFAULT_CATEGORIES,
+    COMMON_RATES: COMMON_RATES,
+    EXAMPLE_SETTINGS: EXAMPLE_SETTINGS,
+    CSV_HEADER: CSV_HEADER,
+    INVOICE_LABEL: INVOICE_LABEL,
+
+    parseAmount: parseAmount,
+    formatAmount: formatAmount,
+    parseRate: parseRate,
+    splitTax: splitTax,
+
+    todayString: todayString,
+    isValidDate: isValidDate,
+    monthOf: monthOf,
+    quarterOf: quarterOf,
+    periodKeyOf: periodKeyOf,
+    quarterMonths: quarterMonths,
+
+    isDeductible: isDeductible,
+    validateTransaction: validateTransaction,
+    createTransaction: createTransaction,
+    validateSettings: validateSettings,
+    normalizeSettings: normalizeSettings,
+
+    summarize: summarize,
+    groupByCategory: groupByCategory,
+    filterRecords: filterRecords,
+    availablePeriods: availablePeriods,
+
+    vatSmallScale: vatSmallScale,
+    vatGeneralScale: vatGeneralScale,
+    vatCalc: vatCalc,
+    surtaxCalc: surtaxCalc,
+    bracketTax: bracketTax,
+    citCalc: citCalc,
+    deductionAdvisory: deductionAdvisory,
+
+    toCSV: toCSV,
+    parseCSV: parseCSV,
+    fromCSV: fromCSV,
+    mergeRecords: mergeRecords
+  };
+});
+
+/**
+ * 托管版存储层：数据（记账记录 + 税务参数）存回 artifact 自己的新版本，
+ * 因此手机和电脑打开同一个链接看到的是同一份账。接口与 storage.js 完全
+ * 一致（loadRecords/saveRecords/loadSettings/saveSettings/...），app.js
+ * 不需要知道两版的差别。
+ *
+ * 三件事值得先说清楚：
+ *
+ * 1. publish 是「最后一个动作」——发布成功后所有打开的视图（包括当前这个）
+ *    都会重新加载。所以发布前必须把用户正在填的表单存进 sessionStorage，
+ *    重载后再放回去，否则手一快就会丢掉正在录入的那一笔。
+ *
+ * 2. 发布的文档必须自己重新拼出来，不能序列化当前 DOM（已经被渲染改过）。
+ *    页面因此把自己的源码放在三个只读的孤岛里：#app-css、#app-shell、
+ *    #app-js，渲染只动 #app，这几个孤岛从头到尾没人碰，可以安全读回来
+ *    重新拼装。
+ *
+ * 3. localStorage 仍然写一份镜像。它不是数据源，是发布失败时的安全网：
+ *    下次启动时把镜像里存在、但已发布版本里没有的记录并回去，免得丢账。
+ */
+window.LedgerStore = (function () {
+  'use strict';
+
+  var MIRROR_KEY = 'biz-ledger.mirror.v1';
+  var PREF_KEY = 'biz-ledger.prefs.v1';
+  var DRAFT_KEY = 'biz-ledger.draft.v1';
+  var PUBLISH_DELAY = 900;
+
+  var state = {
+    records: [],
+    settings: window.Ledger.normalizeSettings(null),
+    api: null,
+    downloads: null,
+    mode: 'connecting',
+    timer: null,
+    publishing: false,
+    awaitingReload: false,
+    retried: false,
+    rescuedCount: 0
+  };
+
+  // ---------- 安全的 localStorage ----------
+
+  function readRaw(key) { try { return window.localStorage.getItem(key); } catch (err) { return null; } }
+  function writeRaw(key, value) { try { window.localStorage.setItem(key, value); return true; } catch (err) { return false; } }
+
+  function readJSON(key, fallback) {
+    var raw = readRaw(key);
+    if (!raw) return fallback;
+    try {
+      var parsed = JSON.parse(raw);
+      return parsed == null ? fallback : parsed;
+    } catch (err) { return fallback; }
+  }
+
+  // ---------- 状态徽章 ----------
+
+  var badge = null;
+
+  function ensureBadge() {
+    if (badge) return badge;
+    var host = document.querySelector('.topbar-actions');
+    if (!host) return null;
+    badge = document.createElement('button');
+    badge.type = 'button';
+    badge.className = 'sync-badge';
+    badge.addEventListener('click', function () {
+      if (state.mode === 'synced' && !state.publishing) schedulePublish(0);
+    });
+    host.insertBefore(badge, host.firstChild);
+    return badge;
+  }
+
+  var LABELS = {
+    connecting: ['连接中…', 'is-idle'],
+    synced: ['已同步', 'is-ok'],
+    saving: ['保存中…', 'is-busy'],
+    local: ['仅存本机', 'is-warn'],
+    readonly: ['只读', 'is-warn'],
+    error: ['未保存，点击重试', 'is-error']
+  };
+
+  function setStatus(key, title) {
+    var node = ensureBadge();
+    if (!node) return;
+    var label = LABELS[key] || LABELS.connecting;
+    node.textContent = label[0];
+    node.className = 'sync-badge ' + label[1];
+    node.title = title || '';
+    node.disabled = key !== 'error';
+  }
+
+  // ---------- 把页面自己拼回去 ----------
+
+  function jsonForScript(value) {
+    // 用户备注/往来单位里可能写出脚本结束标签或注释开头，转义掉才不会截断内联脚本
+    return JSON.stringify(value)
+      .replace(/</g, '\\u003c')
+      .replace(/>/g, '\\u003e')
+      .replace(/\u2028/g, '\\u2028')
+      .replace(/\u2029/g, '\\u2029');
+  }
+
+  function sourceOf(id) {
+    var node = document.getElementById(id);
+    return node ? node.textContent : '';
+  }
+
+  function renderDocument(records, settings) {
+    var shell = document.getElementById('app-shell');
+    var close = '<\/script>';
+    return [
+      '<!doctype html>',
+      '<html lang="zh-CN">',
+      '<head>',
+      '<meta charset="utf-8">',
+      '<meta name="viewport" content="width=device-width, initial-scale=1">',
+      '<title>记账报税助手<\/title>',
+      '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>',
+      '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap">',
+      '<style id="app-css">' + sourceOf('app-css') + '<\/style>',
+      '</head>',
+      '<body>',
+      '<template id="app-shell">' + (shell ? shell.innerHTML : '') + '<\/template>',
+      '<div id="app"></div>',
+      '<script type="application/json" id="app-data">' +
+        jsonForScript({ version: 1, records: records, settings: settings, savedAt: Date.now() }) + close,
+      '<script id="app-js">' + sourceOf('app-js') + close,
+      '</body>',
+      '</html>'
+    ].join('\n');
+  }
+
+  // ---------- 正在填的内容：发布前存好，重载后放回 ----------
+
+  function stashDraft() {
+    try {
+      var directionInput = document.querySelector('input[name="direction"]:checked');
+      var invoiceChip = document.querySelector('#invoice-chips .chip[aria-pressed="true"]');
+      window.sessionStorage.setItem(DRAFT_KEY, JSON.stringify({
+        direction: directionInput ? directionInput.value : 'expense',
+        grossAmount: (document.getElementById('grossAmount') || {}).value || '',
+        taxRate: (document.getElementById('taxRate') || {}).value || '',
+        invoiceType: invoiceChip ? invoiceChip.dataset.invoiceType : 'none',
+        category: (document.getElementById('category') || {}).value || '',
+        counterparty: (document.getElementById('counterparty') || {}).value || '',
+        invoiceNo: (document.getElementById('invoiceNo') || {}).value || '',
+        note: (document.getElementById('note') || {}).value || '',
+        date: (document.getElementById('date') || {}).value || '',
+        editingId: (document.getElementById('record-id') || {}).value || '',
+        keyword: (document.getElementById('filter-keyword') || {}).value || '',
+        scrollY: window.scrollY
+      }));
+    } catch (err) { /* sessionStorage 不可用就算了，不能因此挡住保存 */ }
+  }
+
+  function restoreDraft() {
+    var draft;
+    try {
+      var raw = window.sessionStorage.getItem(DRAFT_KEY);
+      if (!raw) return;
+      window.sessionStorage.removeItem(DRAFT_KEY);
+      draft = JSON.parse(raw);
+    } catch (err) { return; }
+    if (!draft) return;
+
+    var setValue = function (id, value) {
+      var node = document.getElementById(id);
+      if (node && value) node.value = value;
+    };
+    var directionInput = document.querySelector('input[name="direction"][value="' + draft.direction + '"]');
+    if (directionInput) {
+      directionInput.checked = true;
+      directionInput.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    setValue('grossAmount', draft.grossAmount);
+    setValue('taxRate', draft.taxRate);
+    setValue('category', draft.category);
+    setValue('counterparty', draft.counterparty);
+    setValue('invoiceNo', draft.invoiceNo);
+    setValue('note', draft.note);
+    setValue('date', draft.date);
+
+    if (draft.invoiceType) {
+      var chip = document.querySelector('#invoice-chips .chip[data-invoice-type="' + draft.invoiceType + '"]');
+      if (chip) chip.click();
+    }
+    // 手动触发一次预览刷新（grossAmount/taxRate 的 input 事件监听器会做这件事）
+    var grossInput = document.getElementById('grossAmount');
+    if (grossInput) grossInput.dispatchEvent(new Event('input', { bubbles: true }));
+
+    if (draft.keyword) {
+      setValue('filter-keyword', draft.keyword);
+      document.getElementById('filter-keyword').dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    if (draft.scrollY) window.scrollTo(0, draft.scrollY);
+  }
+
+  // ---------- 发布 ----------
+
+  function schedulePublish(delay) {
+    if (!state.api || state.awaitingReload) return;
+    window.clearTimeout(state.timer);
+    state.timer = window.setTimeout(publishNow, delay == null ? PUBLISH_DELAY : delay);
+  }
+
+  function publishNow() {
+    if (!state.api || state.publishing || state.awaitingReload) return;
+    state.publishing = true;
+    setStatus('saving');
+    stashDraft();
+
+    state.api.publish(renderDocument(state.records, state.settings)).then(function () {
+      state.awaitingReload = true;
+      state.publishing = false;
+      setStatus('synced');
+      window.setTimeout(function () {
+        if (state.awaitingReload) window.location.reload();
+      }, 3000);
+    }).catch(function (err) {
+      state.publishing = false;
+      var code = err && err.code;
+
+      if (code === 'conflict') {
+        state.awaitingReload = true;
+        setStatus('saving', '另一台设备刚保存过，正在取回最新的账');
+        return;
+      }
+      if (code === 'not_writer' || code === 'not_granted' || code === 'not_declared') {
+        state.api = null;
+        state.mode = 'readonly';
+        setStatus('readonly', '这个链接对你是只读的，改动只留在本机');
+        return;
+      }
+      if (code === 'rate_limited' && !state.retried) {
+        state.retried = true;
+        setStatus('saving', '保存太频繁，稍后自动重试');
+        schedulePublish(4000);
+        return;
+      }
+      setStatus('error', '保存到云端失败，数据还在本机。点一下重试');
+    });
+  }
+
+  // ---------- 对外接口（与 storage.js 一致） ----------
+
+  function readPublished() {
+    var node = document.getElementById('app-data');
+    if (!node) return { records: [], settings: null };
+    try {
+      var parsed = JSON.parse(node.textContent || '{}');
+      return {
+        records: Array.isArray(parsed.records) ? parsed.records : [],
+        settings: parsed.settings || null
+      };
+    } catch (err) { return { records: [], settings: null }; }
+  }
+
+  var publishedCache = null;
+  function published() {
+    if (!publishedCache) publishedCache = readPublished();
+    return publishedCache;
+  }
+
+  function loadRecords() {
+    var list = published().records.filter(function (r) {
+      return r && typeof r.id === 'string' && typeof r.grossAmount === 'number' && r.date;
+    });
+
+    var mirror = readJSON(MIRROR_KEY, null);
+    var rescued = [];
+    if (mirror && Array.isArray(mirror.records)) {
+      var known = {};
+      list.forEach(function (r) { known[r.id] = true; });
+      rescued = mirror.records.filter(function (r) { return r && typeof r.id === 'string' && !known[r.id]; });
+    }
+
+    state.records = rescued.length ? window.Ledger.mergeRecords(list, rescued) : list;
+    if (rescued.length) state.rescuedCount = rescued.length;
+    return state.records;
+  }
+
+  function loadSettings() {
+    state.settings = window.Ledger.normalizeSettings(published().settings);
+    return state.settings;
+  }
+
+  function saveRecords(records) {
+    state.records = records;
+    writeRaw(MIRROR_KEY, JSON.stringify({ version: 1, records: records, savedAt: Date.now() }));
+    if (state.api) schedulePublish();
+    return true;
+  }
+
+  function saveSettings(settings) {
+    state.settings = settings;
+    if (state.api) schedulePublish();
+    return true;
+  }
+
+  function loadPrefs() { return readJSON(PREF_KEY, {}); }
+  function savePrefs(prefs) { return writeRaw(PREF_KEY, JSON.stringify(prefs)); }
+  function isAvailable() { return true; }
+
+  /** 导出：查看器里页面自己发起的下载会被沙箱拦掉，走 downloads 能力。 */
+  function download(filename, text, done) {
+    var content = '﻿' + text;
+    if (!state.downloads) {
+      showCopyPanel(filename, text);
+      if (done) done('这个环境不能直接下载，已把 CSV 放出来供复制');
+      return;
+    }
+    state.downloads.save({ filename: filename, data: content }).then(function () {
+      if (done) done();
+    }).catch(function (err) {
+      var code = err && err.code;
+      if (code === 'declined') { if (done) done('已取消导出'); return; }
+      showCopyPanel(filename, text);
+      if (done) done('下载没成功，已把 CSV 放出来供复制');
+    });
+  }
+
+  function showCopyPanel(filename, text) {
+    var old = document.getElementById('copy-panel');
+    if (old) old.remove();
+
+    var panel = document.createElement('div');
+    panel.className = 'copy-panel';
+    panel.id = 'copy-panel';
+
+    var head = document.createElement('div');
+    head.className = 'copy-panel-head';
+    var title = document.createElement('strong');
+    title.textContent = filename;
+    var close = document.createElement('button');
+    close.type = 'button';
+    close.className = 'icon-btn';
+    close.textContent = '关闭';
+    close.addEventListener('click', function () { panel.remove(); });
+    head.appendChild(title);
+    head.appendChild(close);
+
+    var area = document.createElement('textarea');
+    area.readOnly = true;
+    area.value = text;
+    area.setAttribute('aria-label', 'CSV 内容，可全选复制');
+
+    var copy = document.createElement('button');
+    copy.type = 'button';
+    copy.className = 'btn btn-primary';
+    copy.textContent = '复制全部';
+    copy.addEventListener('click', function () {
+      area.select();
+      var ok = false;
+      try { ok = document.execCommand('copy'); } catch (err) { ok = false; }
+      copy.textContent = ok ? '已复制' : '请手动按 Ctrl/⌘+C';
+    });
+
+    panel.appendChild(head);
+    panel.appendChild(area);
+    panel.appendChild(copy);
+    document.body.appendChild(panel);
+    area.focus();
+    area.select();
+  }
+
+  // ---------- 启动时接上能力 ----------
+
+  function connect() {
+    var claude = window.claude;
+    if (!claude || typeof claude.use !== 'function') {
+      state.mode = 'local';
+      setStatus('local', '当前环境不提供云端保存，数据只留在这台设备');
+      return;
+    }
+    setStatus('connecting');
+
+    claude.use('artifact').then(function (api) {
+      if (!api) {
+        state.mode = 'local';
+        setStatus('local', '这个视图不能写入，数据只留在这台设备');
+        return;
+      }
+      state.api = api;
+      state.mode = 'synced';
+      setStatus('synced', '手机和电脑打开同一个链接，看到的是同一份账');
+      if (state.rescuedCount) schedulePublish(0);
+    }).catch(function () {
+      state.mode = 'local';
+      setStatus('local', '连接云端失败，数据只留在这台设备');
+    });
+
+    claude.use('downloads').then(function (api) { state.downloads = api || null; }).catch(function () { state.downloads = null; });
+  }
+
+  window.LedgerHosted = { restoreDraft: restoreDraft, connect: connect, renderDocument: renderDocument };
+
+  return {
+    loadRecords: loadRecords,
+    saveRecords: saveRecords,
+    loadSettings: loadSettings,
+    saveSettings: saveSettings,
+    loadPrefs: loadPrefs,
+    savePrefs: savePrefs,
+    isAvailable: isAvailable,
+    download: download
+  };
+})();
+
+
+/* ---- 启动顺序 ---- */
+(function () {
+  'use strict';
+  var tpl = document.getElementById('app-shell');
+  var root = document.getElementById('app');
+  if (tpl && root && !root.firstChild) root.appendChild(tpl.content.cloneNode(true));
+})();
+
+/**
+ * 界面层：读写 state、渲染 DOM、绑事件。
+ * 所有记账和税务计算都走 Ledger（core.js），这里不重复实现业务逻辑，
+ * 只负责把计算结果摆到页面上。所有用户内容一律用 textContent 写入。
+ */
+(function () {
+  'use strict';
+
+  var L = window.Ledger;
+  var Store = window.LedgerStore;
+
+  var $ = function (id) { return document.getElementById(id); };
+
+  var state = {
+    records: [],
+    settings: L.normalizeSettings(null),
+    editingId: null,
+    filters: { period: 'all', direction: 'all', category: 'all', invoiceType: 'all', keyword: '' },
+    vatPeriod: null,
+    citYear: null
+  };
+
+  var el = {
+    form: $('record-form'),
+    id: $('record-id'),
+    grossAmount: $('grossAmount'),
+    date: $('date'),
+    taxRate: $('taxRate'),
+    rateChips: $('rate-chips'),
+    invoiceChips: $('invoice-chips'),
+    category: $('category'),
+    counterparty: $('counterparty'),
+    invoiceNo: $('invoiceNo'),
+    note: $('note'),
+    taxPreview: $('tax-preview'),
+    submitBtn: $('submit-btn'),
+    cancelEdit: $('cancel-edit'),
+    categoryChips: $('category-chips'),
+    datalist: $('category-options'),
+    list: $('record-list'),
+    empty: $('empty-state'),
+    count: $('record-count'),
+    toast: $('toast'),
+    fileInput: $('file-input'),
+    filterPeriod: $('filter-period'),
+    filterDirection: $('filter-direction'),
+    filterCategory: $('filter-category'),
+    filterInvoice: $('filter-invoice'),
+    filterKeyword: $('filter-keyword'),
+    vatPeriodSelect: $('vat-period'),
+    vatReport: $('vat-report'),
+    surtaxReport: $('surtax-report'),
+    citYearSelect: $('cit-year'),
+    citReport: $('cit-report'),
+    invoiceReport: $('invoice-report'),
+    settingsToggle: $('settings-toggle'),
+    settingsBody: $('settings-body'),
+    settingsSummary: $('settings-summary'),
+    settingsSmallFields: $('settings-small-fields'),
+    settingsGeneralFields: $('settings-general-fields'),
+    settingsSaveHint: $('settings-save-hint')
+  };
+
+  var FORM_FIELDS = ['grossAmount', 'date', 'taxRate', 'category', 'counterparty', 'invoiceNo', 'note'];
+  var INVOICE_ORDER = ['none', 'general', 'special'];
+  var invoiceType = 'none';
+
+  // ---------- 工具 ----------
+
+  function money(cents, opts) { return '¥' + L.formatAmount(cents, opts); }
+  function yuanInputValue(cents) { return (cents / 100).toFixed(2); }
+  function currentDirection() {
+    var checked = el.form.querySelector('input[name="direction"]:checked');
+    return checked ? checked.value : 'expense';
+  }
+
+  function persistRecords() {
+    if (!Store.saveRecords(state.records)) toast('保存失败：浏览器存储空间可能已满');
+  }
+  function persistSettings() { Store.saveSettings(state.settings); }
+
+  var toastTimer = null;
+  function toast(message, action) {
+    window.clearTimeout(toastTimer);
+    el.toast.textContent = '';
+    el.toast.appendChild(document.createTextNode(message));
+    if (action) {
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'icon-btn';
+      btn.style.marginLeft = '10px';
+      btn.style.color = 'inherit';
+      btn.style.textDecoration = 'underline';
+      btn.textContent = action.label;
+      btn.addEventListener('click', function () { el.toast.hidden = true; action.run(); });
+      el.toast.appendChild(btn);
+    }
+    el.toast.hidden = false;
+    toastTimer = window.setTimeout(function () { el.toast.hidden = true; }, action ? 6000 : 2600);
+  }
+
+  function setFieldError(field, message) {
+    var input = el[field];
+    var box = $(field + '-error');
+    if (box) box.textContent = message || '';
+    if (input) {
+      if (message) input.setAttribute('aria-invalid', 'true');
+      else input.removeAttribute('aria-invalid');
+    }
+  }
+  function clearErrors(fields) { fields.forEach(function (f) { setFieldError(f, ''); }); }
+
+  // ---------- 税务参数面板 ----------
+
+  function fillSettingsForm(s) {
+    document.querySelector('input[name="taxpayerType"][value="' + s.taxpayerType + '"]').checked = true;
+    document.querySelector('input[name="period"][value="' + s.period + '"]').checked = true;
+    $('s-vat-small-rate').value = String(s.vatSmallRate);
+    $('s-vat-threshold-month').value = yuanInputValue(s.vatSmallThresholdMonth);
+    $('s-vat-threshold-quarter').value = yuanInputValue(s.vatSmallThresholdQuarter);
+    $('s-vat-opening-credit').value = yuanInputValue(s.vatOpeningCredit);
+    $('s-surtax-rate').value = String(s.surtaxRate);
+    $('s-cit-cap').value = yuanInputValue(s.citBrackets[0].upTo || 0);
+    $('s-cit-low').value = String(s.citBrackets[0].rate);
+    $('s-cit-high').value = String(s.citBrackets[1].rate);
+    $('s-entertain-rate').value = String(s.entertainmentDeductRate);
+    $('s-entertain-cap').value = String(s.entertainmentRevenueCap);
+    $('s-ad-cap').value = String(s.adRevenueCap);
+    toggleSettingsFieldsByType();
+  }
+
+  function toggleSettingsFieldsByType() {
+    var type = document.querySelector('input[name="taxpayerType"]:checked').value;
+    el.settingsSmallFields.hidden = type !== 'small';
+    el.settingsGeneralFields.hidden = type !== 'general';
+  }
+
+  function renderSettingsSummary() {
+    var s = state.settings;
+    var typeLabel = s.taxpayerType === 'general' ? '一般纳税人' : '小规模纳税人';
+    var periodLabel = s.period === 'quarter' ? '按季申报' : '按月申报';
+    var extra = s.taxpayerType === 'general'
+      ? '附加税 ' + s.surtaxRate + '%'
+      : '征收率 ' + s.vatSmallRate + '%';
+    el.settingsSummary.textContent = typeLabel + ' · ' + periodLabel + ' · ' + extra;
+  }
+
+  function readSettingsForm() {
+    return {
+      taxpayerType: document.querySelector('input[name="taxpayerType"]:checked').value,
+      period: document.querySelector('input[name="period"]:checked').value,
+      vatSmallRate: $('s-vat-small-rate').value,
+      vatSmallThresholdMonth: $('s-vat-threshold-month').value,
+      vatSmallThresholdQuarter: $('s-vat-threshold-quarter').value,
+      vatOpeningCredit: $('s-vat-opening-credit').value,
+      surtaxRate: $('s-surtax-rate').value,
+      citBracketCap: $('s-cit-cap').value,
+      citLowRate: $('s-cit-low').value,
+      citHighRate: $('s-cit-high').value,
+      entertainmentDeductRate: $('s-entertain-rate').value,
+      entertainmentRevenueCap: $('s-entertain-cap').value,
+      adRevenueCap: $('s-ad-cap').value
+    };
+  }
+
+  var SETTINGS_FIELD_MAP = {
+    vatSmallRate: 's-vat-small-rate', vatSmallThresholdMonth: 's-vat-threshold-month',
+    vatSmallThresholdQuarter: 's-vat-threshold-quarter', vatOpeningCredit: 's-vat-opening-credit',
+    surtaxRate: 's-surtax-rate', citBracketCap: 's-cit-cap', citLowRate: 's-cit-low',
+    citHighRate: 's-cit-high', entertainmentDeductRate: 's-entertain-rate',
+    entertainmentRevenueCap: 's-entertain-cap', adRevenueCap: 's-ad-cap',
+    taxpayerType: null, period: null
+  };
+
+  function saveSettingsFromForm() {
+    Object.values(SETTINGS_FIELD_MAP).filter(Boolean).forEach(function (id) {
+      var box = document.getElementById(id + '-error');
+      if (box) box.textContent = '';
+      document.getElementById(id).removeAttribute('aria-invalid');
+    });
+
+    var result = L.validateSettings(readSettingsForm());
+    if (!result.ok) {
+      Object.keys(result.errors).forEach(function (field) {
+        var id = SETTINGS_FIELD_MAP[field];
+        if (!id) return;
+        var box = document.getElementById(id + '-error');
+        if (box) box.textContent = result.errors[field];
+        document.getElementById(id).setAttribute('aria-invalid', 'true');
+      });
+      el.settingsSaveHint.textContent = '';
+      toast('部分参数不对，请检查标红的项');
+      return;
+    }
+
+    state.settings = result.value;
+    persistSettings();
+    el.settingsSaveHint.textContent = '已保存';
+    window.setTimeout(function () { el.settingsSaveHint.textContent = ''; }, 2500);
+    render();
+  }
+
+  // ---------- 科目 chips ----------
+
+  function knownCategories(direction) {
+    var used = [];
+    var seen = {};
+    L.filterRecords(state.records, { direction: direction }).forEach(function (r) {
+      if (!seen[r.category]) { seen[r.category] = true; used.push(r.category); }
+    });
+    (L.DEFAULT_CATEGORIES[direction] || []).forEach(function (c) {
+      if (!seen[c]) { seen[c] = true; used.push(c); }
+    });
+    return used;
+  }
+
+  function renderCategoryHelpers() {
+    var direction = currentDirection();
+    var options = knownCategories(direction);
+    var active = el.category.value.trim();
+
+    el.categoryChips.textContent = '';
+    options.slice(0, 12).forEach(function (name) {
+      var chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'chip';
+      chip.textContent = name;
+      chip.setAttribute('aria-pressed', name === active ? 'true' : 'false');
+      chip.addEventListener('click', function () {
+        el.category.value = name === active ? '' : name;
+        setFieldError('category', '');
+        renderCategoryHelpers();
+      });
+      el.categoryChips.appendChild(chip);
+    });
+
+    el.datalist.textContent = '';
+    options.forEach(function (name) {
+      var opt = document.createElement('option');
+      opt.value = name;
+      el.datalist.appendChild(opt);
+    });
+  }
+
+  // ---------- 税率 / 发票类型 chips ----------
+
+  function renderRateChips() {
+    var current = el.taxRate.value.trim();
+    el.rateChips.textContent = '';
+    L.COMMON_RATES.forEach(function (rate) {
+      var chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'chip';
+      chip.textContent = rate + '%';
+      chip.setAttribute('aria-pressed', String(rate) === current ? 'true' : 'false');
+      chip.addEventListener('click', function () {
+        el.taxRate.value = String(rate);
+        setFieldError('taxRate', '');
+        renderRateChips();
+        renderTaxPreview();
+      });
+      el.rateChips.appendChild(chip);
+    });
+  }
+
+  var INVOICE_LABEL_TEXT = { none: '无票', general: '普通发票', special: '增值税专用发票' };
+
+  function renderInvoiceChips() {
+    el.invoiceChips.textContent = '';
+    INVOICE_ORDER.forEach(function (type) {
+      var chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'chip';
+      chip.textContent = INVOICE_LABEL_TEXT[type];
+      chip.dataset.invoiceType = type; // 托管版发布前存草稿时，靠这个属性读出/点回当前选中的发票类型
+      chip.setAttribute('aria-pressed', type === invoiceType ? 'true' : 'false');
+      chip.addEventListener('click', function () {
+        invoiceType = type;
+        renderInvoiceChips();
+        renderTaxPreview();
+      });
+      el.invoiceChips.appendChild(chip);
+    });
+  }
+
+  function renderTaxPreview() {
+    var gross = L.parseAmount(el.grossAmount.value);
+    var rate = L.parseRate(el.taxRate.value === '' ? 0 : el.taxRate.value);
+    if (gross === null || gross <= 0 || rate === null) {
+      el.taxPreview.textContent = '填写金额和税率后，这里会显示拆分出的不含税金额与税额。';
+      return;
+    }
+    var split = L.splitTax(gross, rate);
+    var deductible = L.isDeductible(currentDirection(), invoiceType, state.settings.taxpayerType);
+
+    el.taxPreview.textContent = '';
+    var parts = [
+      ['不含税金额', money(split.net)],
+      ['税额', money(split.tax)]
+    ];
+    if (currentDirection() === 'expense') {
+      parts.push(['进项抵扣', deductible ? '可抵扣' : '不可抵扣']);
+    }
+    parts.forEach(function (pair) {
+      var span = document.createElement('span');
+      var label = document.createTextNode(pair[0] + ' ');
+      var b = document.createElement('b');
+      b.textContent = pair[1];
+      span.appendChild(label);
+      span.appendChild(b);
+      el.taxPreview.appendChild(span);
+    });
+  }
+
+  // ---------- 筛选控件 ----------
+
+  function periodLabel(key, periodType) {
+    if (periodType === 'quarter') {
+      return key.slice(0, 4) + ' 年第 ' + key.slice(6) + ' 季度';
+    }
+    return key.slice(0, 4) + ' 年 ' + Number(key.slice(5, 7)) + ' 月';
+  }
+
+  function fillSelect(select, items, currentValue) {
+    select.textContent = '';
+    items.forEach(function (item) {
+      var opt = document.createElement('option');
+      opt.value = item.value;
+      opt.textContent = item.label;
+      select.appendChild(opt);
+    });
+    var exists = items.some(function (i) { return i.value === currentValue; });
+    select.value = exists ? currentValue : items[0].value;
+    return select.value;
+  }
+
+  function renderFilters() {
+    var periods = [{ value: 'all', label: '全部期间' }];
+    L.availablePeriods(state.records, state.settings.period).forEach(function (p) {
+      periods.push({ value: p, label: periodLabel(p, state.settings.period) });
+    });
+    state.filters.period = fillSelect(el.filterPeriod, periods, state.filters.period);
+    state.filters.periodType = state.settings.period;
+
+    var categories = [{ value: 'all', label: '全部科目' }];
+    var seen = {};
+    state.records.forEach(function (r) {
+      if (!seen[r.category]) { seen[r.category] = true; categories.push({ value: r.category, label: r.category }); }
+    });
+    state.filters.category = fillSelect(el.filterCategory, categories, state.filters.category);
+
+    el.filterDirection.value = state.filters.direction;
+    el.filterInvoice.value = state.filters.invoiceType;
+  }
+
+  // ---------- 明细渲染 ----------
+
+  function visibleRecords() { return L.filterRecords(state.records, state.filters); }
+
+  function renderStats(records) {
+    var s = L.summarize(records);
+    $('stat-income').textContent = money(s.incomeNet);
+    $('stat-expense').textContent = money(s.expenseNet);
+    var profit = $('stat-profit');
+    profit.textContent = money(s.profit);
+    profit.style.color = s.profit < 0 ? 'var(--expense)' : (s.profit > 0 ? 'var(--income)' : '');
+  }
+
+  function makeRecordItem(record) {
+    var li = document.createElement('li');
+    li.className = 'record';
+
+    var main = document.createElement('div');
+    main.className = 'record-main';
+
+    var category = document.createElement('div');
+    category.className = 'record-category';
+    category.textContent = record.category;
+    main.appendChild(category);
+
+    var meta = document.createElement('div');
+    meta.className = 'record-meta';
+    if (record.counterparty) {
+      var cp = document.createElement('span');
+      cp.textContent = record.counterparty;
+      meta.appendChild(cp);
+    }
+    var invoiceTag = document.createElement('span');
+    invoiceTag.className = 'tag' + (record.invoiceType === 'special' ? ' tag-special' : '');
+    invoiceTag.textContent = L.INVOICE_LABEL[record.invoiceType];
+    meta.appendChild(invoiceTag);
+    if (record.taxRate) {
+      var rateTag = document.createElement('span');
+      rateTag.className = 'tag';
+      rateTag.textContent = record.taxRate + '%';
+      meta.appendChild(rateTag);
+    }
+    main.appendChild(meta);
+
+    if (record.note) {
+      var note = document.createElement('div');
+      note.className = 'record-note';
+      note.textContent = record.note;
+      note.title = record.note;
+      main.appendChild(note);
+    }
+
+    var amount = document.createElement('div');
+    amount.className = 'record-amount ' + record.direction;
+    var gross = document.createElement('span');
+    gross.className = 'gross';
+    gross.textContent = (record.direction === 'income' ? '+' : '−') + money(record.grossAmount);
+    amount.appendChild(gross);
+    if (record.taxAmount) {
+      var taxSpan = document.createElement('span');
+      taxSpan.className = 'tax';
+      taxSpan.textContent = '税 ' + money(record.taxAmount);
+      amount.appendChild(taxSpan);
+    }
+
+    var actions = document.createElement('div');
+    actions.className = 'record-actions';
+    var edit = document.createElement('button');
+    edit.type = 'button';
+    edit.className = 'icon-btn';
+    edit.textContent = '编辑';
+    edit.addEventListener('click', function () { startEdit(record.id); });
+    var del = document.createElement('button');
+    del.type = 'button';
+    del.className = 'icon-btn danger';
+    del.textContent = '删除';
+    del.addEventListener('click', function () { removeRecord(record.id); });
+    actions.appendChild(edit);
+    actions.appendChild(del);
+
+    li.appendChild(main);
+    li.appendChild(amount);
+    li.appendChild(actions);
+    return li;
+  }
+
+  function renderList(records) {
+    el.list.textContent = '';
+    el.count.textContent = records.length ? '共 ' + records.length + ' 笔' : '';
+
+    if (records.length === 0) {
+      el.empty.hidden = false;
+      el.empty.textContent = state.records.length === 0 ? '还没有记录，上面记第一笔吧。' : '这个筛选条件下没有记录。';
+      return;
+    }
+    el.empty.hidden = true;
+
+    var currentDay = null;
+    records.forEach(function (record) {
+      if (record.date !== currentDay) {
+        currentDay = record.date;
+        var sameDay = records.filter(function (r) { return r.date === currentDay; });
+        var sum = L.summarize(sameDay);
+        var head = document.createElement('li');
+        head.className = 'day-head';
+        var label = document.createElement('span');
+        label.textContent = currentDay;
+        var total = document.createElement('span');
+        total.className = 'day-sum';
+        var parts = [];
+        if (sum.incomeGross) parts.push('收 ' + money(sum.incomeGross));
+        if (sum.expenseGross) parts.push('支 ' + money(sum.expenseGross));
+        total.textContent = parts.join(' · ');
+        head.appendChild(label);
+        head.appendChild(total);
+        el.list.appendChild(head);
+      }
+      el.list.appendChild(makeRecordItem(record));
+    });
+  }
+
+  // ---------- 增值税报表 ----------
+
+  function renderVatReport() {
+    var periods = L.availablePeriods(state.records, state.settings.period);
+    if (periods.length === 0) periods = [L.periodKeyOf(L.todayString(), state.settings.period)];
+    var items = periods.map(function (p) { return { value: p, label: periodLabel(p, state.settings.period) }; });
+    state.vatPeriod = fillSelect(el.vatPeriodSelect, items, state.vatPeriod);
+
+    var result = L.vatCalc(state.records, state.settings, state.vatPeriod, state.settings.period);
+    el.vatReport.textContent = '';
+
+    var table = document.createElement('table');
+    table.className = 'report-table';
+    var rows = [];
+
+    if (result.taxpayerType === 'small') {
+      rows.push(['不含税销售额', money(result.netSales)]);
+      rows.push(['征收率', result.rate + '%']);
+      if (result.belowThreshold) {
+        rows.push(['起征点', money(result.threshold) + '（未达标，免征）']);
+      } else {
+        rows.push(['起征点', money(result.threshold)]);
+      }
+    } else {
+      rows.push(['销项税额', money(result.outputTax)]);
+      rows.push(['本期进项税额（可抵扣）', money(result.inputTax)]);
+      rows.push(['期初留抵税额', money(result.openingCredit)]);
+      rows.push(['期末留抵税额（结转下期）', money(result.closingCredit)]);
+    }
+
+    rows.forEach(function (pair) {
+      var tr = document.createElement('tr');
+      var td1 = document.createElement('td'); td1.className = 'label'; td1.textContent = pair[0];
+      var td2 = document.createElement('td'); td2.className = 'num'; td2.textContent = pair[1];
+      tr.appendChild(td1); tr.appendChild(td2);
+      table.appendChild(tr);
+    });
+
+    var totalRow = document.createElement('tr');
+    totalRow.className = 'total';
+    var totalLabel = document.createElement('td'); totalLabel.className = 'label'; totalLabel.textContent = '应纳增值税';
+    var totalValue = document.createElement('td'); totalValue.className = 'num'; totalValue.textContent = money(result.payable);
+    totalRow.appendChild(totalLabel); totalRow.appendChild(totalValue);
+    table.appendChild(totalRow);
+
+    el.vatReport.appendChild(table);
+
+    if (result.taxpayerType === 'small' && result.belowThreshold) {
+      var pill = document.createElement('span');
+      pill.className = 'pill pill-ok';
+      pill.style.marginTop = '10px';
+      pill.style.display = 'inline-block';
+      pill.textContent = '本期未达起征点，测算为免征';
+      el.vatReport.appendChild(pill);
+    }
+
+    renderSurtaxReport(result.payable);
+  }
+
+  function renderSurtaxReport(vatPayable) {
+    var r = L.surtaxCalc(vatPayable, state.settings);
+    el.surtaxReport.textContent = '';
+    var table = document.createElement('table');
+    table.className = 'report-table';
+    [['计税依据（应纳增值税）', money(r.base)], ['合计比例', r.rate + '%']].forEach(function (pair) {
+      var tr = document.createElement('tr');
+      var td1 = document.createElement('td'); td1.className = 'label'; td1.textContent = pair[0];
+      var td2 = document.createElement('td'); td2.className = 'num'; td2.textContent = pair[1];
+      tr.appendChild(td1); tr.appendChild(td2);
+      table.appendChild(tr);
+    });
+    var totalRow = document.createElement('tr');
+    totalRow.className = 'total';
+    var totalLabel = document.createElement('td'); totalLabel.className = 'label'; totalLabel.textContent = '应纳附加税合计';
+    var totalValue = document.createElement('td'); totalValue.className = 'num'; totalValue.textContent = money(r.amount);
+    totalRow.appendChild(totalLabel); totalRow.appendChild(totalValue);
+    table.appendChild(totalRow);
+    el.surtaxReport.appendChild(table);
+
+    var note = document.createElement('p');
+    note.className = 'report-note';
+    note.textContent = '城建税、教育费附加、地方教育费附加分税种税率不同，此处按合计比例简化测算，具体请以当地规定为准。';
+    el.surtaxReport.appendChild(note);
+  }
+
+  // ---------- 企业所得税报表 ----------
+
+  function renderCitReport() {
+    var years = {};
+    state.records.forEach(function (r) { years[r.date.slice(0, 4)] = true; });
+    var currentYear = L.todayString().slice(0, 4);
+    years[currentYear] = true;
+    var yearList = Object.keys(years).sort().reverse();
+    var items = yearList.map(function (y) { return { value: y, label: y + ' 年' }; });
+    state.citYear = fillSelect(el.citYearSelect, items, state.citYear);
+
+    var yearRecords = state.records.filter(function (r) { return r.date.slice(0, 4) === state.citYear; });
+    var result = L.citCalc(yearRecords, state.settings);
+    var advisories = L.deductionAdvisory(yearRecords, state.settings);
+
+    el.citReport.textContent = '';
+    var table = document.createElement('table');
+    table.className = 'report-table';
+    var rows = [
+      ['收入（不含税）', money(result.revenue)],
+      ['成本费用（不含税）', money(result.costAndExpense)],
+      ['利润（简化，未做纳税调整）', money(result.profit)],
+      ['应纳税所得额', money(result.taxableIncome)]
+    ];
+    rows.forEach(function (pair) {
+      var tr = document.createElement('tr');
+      var td1 = document.createElement('td'); td1.className = 'label'; td1.textContent = pair[0];
+      var td2 = document.createElement('td'); td2.className = 'num'; td2.textContent = pair[1];
+      tr.appendChild(td1); tr.appendChild(td2);
+      table.appendChild(tr);
+    });
+    var totalRow = document.createElement('tr');
+    totalRow.className = 'total';
+    var totalLabel = document.createElement('td'); totalLabel.className = 'label'; totalLabel.textContent = '应纳企业所得税';
+    var totalValue = document.createElement('td'); totalValue.className = 'num'; totalValue.textContent = money(result.tax);
+    totalRow.appendChild(totalLabel); totalRow.appendChild(totalValue);
+    table.appendChild(totalRow);
+    el.citReport.appendChild(table);
+
+    var note = document.createElement('p');
+    note.className = 'report-note';
+    note.textContent = '未考虑具体纳税调整事项（超标费用调增、免税收入调减、以前年度亏损弥补等），仅作参考。';
+    el.citReport.appendChild(note);
+
+    advisories.forEach(function (a) {
+      var box = document.createElement('div');
+      box.className = 'advisory-item';
+      box.textContent = '';
+      var line1 = document.createTextNode(a.category + ' 本期发生 ');
+      var b1 = document.createElement('b'); b1.textContent = money(a.spent);
+      var line2 = document.createTextNode('，按「' + a.rule + '」孰低估算税前扣除限额约 ');
+      var b2 = document.createElement('b'); b2.textContent = money(a.cap);
+      box.appendChild(line1); box.appendChild(b1); box.appendChild(line2); box.appendChild(b2);
+      if (a.excess > 0) {
+        var line3 = document.createTextNode('，超出部分约 ');
+        var b3 = document.createElement('b'); b3.textContent = money(a.excess);
+        var line4 = document.createTextNode(' 需在企业所得税申报时做纳税调增。');
+        box.appendChild(line3); box.appendChild(b3); box.appendChild(line4);
+      } else {
+        box.appendChild(document.createTextNode('，未超限额。'));
+      }
+      el.citReport.appendChild(box);
+    });
+  }
+
+  // ---------- 发票概览 ----------
+
+  function renderInvoiceReport() {
+    var periodKey = state.vatPeriod || L.periodKeyOf(L.todayString(), state.settings.period);
+    var periodRecords = state.records.filter(function (r) {
+      return L.periodKeyOf(r.date, state.settings.period) === periodKey;
+    });
+    var outputInvoices = periodRecords.filter(function (r) { return r.direction === 'income' && r.invoiceType !== 'none'; });
+    var specialInputs = periodRecords.filter(function (r) { return r.direction === 'expense' && r.invoiceType === 'special'; });
+    var deductibleInputs = specialInputs.filter(function (r) { return r.deductible; });
+    var deductibleTax = deductibleInputs.reduce(function (sum, r) { return sum + r.taxAmount; }, 0);
+
+    el.invoiceReport.textContent = '';
+    var grid = document.createElement('div');
+    grid.className = 'mini-stats';
+    [
+      ['本期销项发票', outputInvoices.length + ' 张'],
+      ['本期进项专票', specialInputs.length + ' 张'],
+      ['可抵扣进项税额', money(deductibleTax)],
+      ['统计期间', periodLabel(periodKey, state.settings.period)]
+    ].forEach(function (pair) {
+      var box = document.createElement('div');
+      box.className = 'mini-stat';
+      var n = document.createElement('span'); n.className = 'n'; n.textContent = pair[1];
+      var l = document.createElement('span'); l.className = 'l'; l.textContent = pair[0];
+      box.appendChild(n); box.appendChild(l);
+      grid.appendChild(box);
+    });
+    el.invoiceReport.appendChild(grid);
+
+    var note = document.createElement('p');
+    note.className = 'report-note';
+    note.textContent = '发票明细已包含在导出的 CSV 里（发票类型、发票号列），可用表格软件按需筛选。';
+    el.invoiceReport.appendChild(note);
+  }
+
+  // ---------- 汇总渲染 ----------
+
+  function render() {
+    renderSettingsSummary();
+    renderFilters();
+    var records = visibleRecords();
+    renderStats(records);
+    renderList(records);
+    renderVatReport();
+    renderCitReport();
+    renderInvoiceReport();
+    renderCategoryHelpers();
+  }
+
+  // ---------- 增删改 ----------
+
+  function resetForm() {
+    state.editingId = null;
+    el.form.reset();
+    el.id.value = '';
+    el.date.value = L.todayString();
+    el.taxRate.value = '';
+    invoiceType = 'none';
+    el.submitBtn.textContent = '保存';
+    el.cancelEdit.hidden = true;
+    clearErrors(FORM_FIELDS);
+    renderCategoryHelpers();
+    renderRateChips();
+    renderInvoiceChips();
+    renderTaxPreview();
+  }
+
+  function startEdit(id) {
+    var record = state.records.find(function (r) { return r.id === id; });
+    if (!record) return;
+
+    state.editingId = id;
+    el.id.value = id;
+    el.form.querySelector('input[name="direction"][value="' + record.direction + '"]').checked = true;
+    el.grossAmount.value = (record.grossAmount / 100).toFixed(2);
+    el.taxRate.value = String(record.taxRate);
+    invoiceType = record.invoiceType;
+    el.category.value = record.category;
+    el.counterparty.value = record.counterparty || '';
+    el.invoiceNo.value = record.invoiceNo || '';
+    el.date.value = record.date;
+    el.note.value = record.note || '';
+    el.submitBtn.textContent = '更新';
+    el.cancelEdit.hidden = false;
+    clearErrors(FORM_FIELDS);
+    renderCategoryHelpers();
+    renderRateChips();
+    renderInvoiceChips();
+    renderTaxPreview();
+
+    el.form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    el.grossAmount.focus();
+    el.grossAmount.select();
+  }
+
+  function removeRecord(id) {
+    var index = state.records.findIndex(function (r) { return r.id === id; });
+    if (index === -1) return;
+    var removed = state.records[index];
+    state.records.splice(index, 1);
+    if (state.editingId === id) resetForm();
+    persistRecords();
+    render();
+    toast('已删除 ' + removed.category + ' ' + money(removed.grossAmount), {
+      label: '撤销',
+      run: function () {
+        state.records.splice(Math.min(index, state.records.length), 0, removed);
+        persistRecords();
+        render();
+        toast('已恢复');
+      }
+    });
+  }
+
+  function handleSubmit(event) {
+    event.preventDefault();
+    clearErrors(FORM_FIELDS);
+
+    var result = L.createTransaction({
+      id: state.editingId || undefined,
+      direction: currentDirection(),
+      grossAmount: el.grossAmount.value,
+      taxRate: el.taxRate.value === '' ? 0 : el.taxRate.value,
+      invoiceType: invoiceType,
+      category: el.category.value,
+      counterparty: el.counterparty.value,
+      invoiceNo: el.invoiceNo.value,
+      date: el.date.value,
+      note: el.note.value
+    }, state.settings);
+
+    if (!result.ok) {
+      Object.keys(result.errors).forEach(function (field) { setFieldError(field, result.errors[field]); });
+      var firstBad = FORM_FIELDS.find(function (f) { return result.errors[f]; });
+      if (firstBad && el[firstBad]) el[firstBad].focus();
+      return;
+    }
+
+    var record = result.value;
+    if (state.editingId) {
+      var index = state.records.findIndex(function (r) { return r.id === state.editingId; });
+      if (index === -1) state.records.push(record);
+      else state.records[index] = Object.assign({}, state.records[index], record);
+      toast('已更新');
+    } else {
+      state.records.push(record);
+      toast('已记下 ' + money(record.grossAmount));
+    }
+
+    persistRecords();
+    resetForm();
+    render();
+    el.grossAmount.focus();
+  }
+
+  // ---------- 导入导出 ----------
+
+  function exportCSV() {
+    var records = visibleRecords();
+    if (records.length === 0) { toast('当前没有可导出的记录'); return; }
+    var scope = state.filters.period === 'all' ? '全部' : state.filters.period;
+    Store.download('记账-' + scope + '.csv', L.toCSV(records), function (message) {
+      toast(message || ('已导出 ' + records.length + ' 笔'));
+    });
+  }
+
+  function importCSV(file) {
+    var reader = new FileReader();
+    reader.onerror = function () { toast('读取文件失败'); };
+    reader.onload = function () {
+      var result = L.fromCSV(String(reader.result), state.settings);
+      if (result.records.length === 0) {
+        toast(result.errors.length ? '没有可导入的行，第 ' + result.errors[0].line + ' 行：' + result.errors[0].message : '文件里没有记录');
+        return;
+      }
+      var before = state.records.length;
+      state.records = L.mergeRecords(state.records, result.records);
+      persistRecords();
+      render();
+      var added = state.records.length - before;
+      var message = '已导入 ' + added + ' 笔';
+      if (result.errors.length) message += '，跳过 ' + result.errors.length + ' 行格式有问题的数据';
+      toast(message);
+    };
+    reader.readAsText(file, 'utf-8');
+  }
+
+  function clearAll() {
+    if (state.records.length === 0) { toast('本来就是空的'); return; }
+    var ok = window.confirm('确定清空全部 ' + state.records.length + ' 笔记录吗？\n这个操作不能撤销，建议先导出 CSV 备份。');
+    if (!ok) return;
+    state.records = [];
+    state.filters = { period: 'all', direction: 'all', category: 'all', invoiceType: 'all', keyword: '' };
+    el.filterKeyword.value = '';
+    persistRecords();
+    resetForm();
+    render();
+    toast('已清空');
+  }
+
+  // ---------- 事件绑定 ----------
+
+  function bind() {
+    el.form.addEventListener('submit', handleSubmit);
+    el.cancelEdit.addEventListener('click', function () { resetForm(); });
+
+    el.form.querySelectorAll('input[name="direction"]').forEach(function (input) {
+      input.addEventListener('change', function () { renderCategoryHelpers(); renderTaxPreview(); });
+    });
+
+    el.category.addEventListener('input', function () { setFieldError('category', ''); renderCategoryHelpers(); });
+    el.grossAmount.addEventListener('input', function () { setFieldError('grossAmount', ''); renderTaxPreview(); });
+    el.taxRate.addEventListener('input', function () { setFieldError('taxRate', ''); renderRateChips(); renderTaxPreview(); });
+    el.date.addEventListener('input', function () { setFieldError('date', ''); });
+    el.counterparty.addEventListener('input', function () { setFieldError('counterparty', ''); });
+    el.invoiceNo.addEventListener('input', function () { setFieldError('invoiceNo', ''); });
+
+    el.filterPeriod.addEventListener('change', function () { state.filters.period = this.value; render(); });
+    el.filterDirection.addEventListener('change', function () { state.filters.direction = this.value; render(); });
+    el.filterCategory.addEventListener('change', function () { state.filters.category = this.value; render(); });
+    el.filterInvoice.addEventListener('change', function () { state.filters.invoiceType = this.value; render(); });
+
+    var searchTimer = null;
+    el.filterKeyword.addEventListener('input', function () {
+      var value = this.value;
+      window.clearTimeout(searchTimer);
+      searchTimer = window.setTimeout(function () { state.filters.keyword = value; render(); }, 150);
+    });
+
+    el.vatPeriodSelect.addEventListener('change', function () { state.vatPeriod = this.value; renderVatReport(); renderInvoiceReport(); });
+    el.citYearSelect.addEventListener('change', function () { state.citYear = this.value; renderCitReport(); });
+
+    el.settingsToggle.addEventListener('click', function () {
+      var expanded = el.settingsToggle.getAttribute('aria-expanded') === 'true';
+      el.settingsToggle.setAttribute('aria-expanded', String(!expanded));
+      el.settingsBody.hidden = expanded;
+    });
+    document.querySelectorAll('input[name="taxpayerType"]').forEach(function (input) {
+      input.addEventListener('change', toggleSettingsFieldsByType);
+    });
+    $('settings-save').addEventListener('click', saveSettingsFromForm);
+
+    $('export-csv').addEventListener('click', exportCSV);
+    $('import-csv').addEventListener('click', function () { el.fileInput.click(); });
+    el.fileInput.addEventListener('change', function () {
+      if (this.files && this.files[0]) importCSV(this.files[0]);
+      this.value = '';
+    });
+    $('clear-all').addEventListener('click', clearAll);
+
+    document.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape' && state.editingId) resetForm();
+    });
+  }
+
+  // ---------- 启动 ----------
+
+  function init() {
+    state.records = Store.loadRecords();
+    state.settings = Store.loadSettings();
+    if (!Store.isAvailable()) $('storage-warning').hidden = false;
+    bind();
+    fillSettingsForm(state.settings);
+    resetForm();
+    render();
+  }
+
+  window.LedgerApp = { init: init, getState: function () { return state; } };
+
+  init();
+})();
+
+
+/* ---- 接上云端，并把重载前正在填的内容放回去 ---- */
+(function () {
+  'use strict';
+  if (!window.LedgerHosted) return;
+  window.LedgerHosted.connect();
+  window.LedgerHosted.restoreDraft();
+})();
+
+</script>
