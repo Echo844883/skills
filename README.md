@@ -13,6 +13,7 @@
 | Path | What it is |
 | --- | --- |
 | [`probability-weight-calculator/`](./probability-weight-calculator) | Static web app: pick a goal (考研 / 保研 / 就业), weigh the things you're evaluating (CET, GPA, competitions, internships, …), and get a weighted success-probability estimate. Pure client-side, no backend, no API key. Live at [echo844883.github.io/skills/probability-weight-calculator/](https://echo844883.github.io/skills/probability-weight-calculator/) — served directly from `main` via classic GitHub Pages (Settings → Pages → Source: Deploy from a branch → `main` / `/root`), no Actions workflow involved. |
+| [`biz-ledger/`](./biz-ledger) | Static web app: bookkeeping and VAT / corporate-income-tax estimation for mainland China small businesses — not an official filing system, every tax rate and threshold is an editable example value. Pure client-side, `localStorage` only. Live at [echo844883.github.io/skills/biz-ledger/](https://echo844883.github.io/skills/biz-ledger/), same Pages setup as above. Deployed from [`apps/biz-ledger/`](./apps/biz-ledger), which also has a Claude Artifact build (`hosted.html`) that syncs across devices through a shareable link — see that directory's README for the fuller picture, tests, and tax-calculation notes. |
 
 ## taste-skill
 
