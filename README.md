@@ -138,6 +138,22 @@ content to be on the default branch):
 For every project on a machine, copy the skill directories you want into
 `~/.claude/skills/`.
 
+## Apps
+
+Standalone apps that live in this repo alongside the skills — not skills themselves,
+not vendored from anywhere.
+
+| Directory | What it is |
+| --- | --- |
+| `apps/ledger` | 记账本 — a zero-dependency personal ledger. Single static page, no build step, no backend; records are kept in the browser's `localStorage` and export to CSV. See [`apps/ledger/README.md`](apps/ledger/README.md). |
+
+Open `apps/ledger/index.html` directly, or serve the directory with any static
+server. Its unit tests run on Node's built-in test runner with no dependencies:
+
+```
+cd apps/ledger && npm test
+```
+
 ## Updating from upstream
 
 - **taste-skill** — re-copy `skills/`, `research/`, `LICENSE`, and `CHANGELOG.md`

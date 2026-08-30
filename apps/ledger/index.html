@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="一个零依赖的本地记账工具，数据只保存在你自己的浏览器里。">
+<title>记账本</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💰</text></svg>">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap topbar-inner">
+    <h1 class="brand"><span aria-hidden="true">💰</span> 记账本</h1>
+    <div class="topbar-actions">
+      <button type="button" class="btn btn-ghost" id="export-csv">导出 CSV</button>
+      <button type="button" class="btn btn-ghost" id="import-csv">导入 CSV</button>
+      <input type="file" id="file-input" accept=".csv,text/csv" hidden>
+      <button type="button" class="btn btn-ghost btn-danger" id="clear-all">清空</button>
+    </div>
+  </div>
+</header>
+
+<p class="banner" id="storage-warning" hidden>
+  浏览器不允许本站保存数据（隐私模式或站点数据被禁用），这次录入的内容关掉页面就会丢失。
+</p>
+
+<main class="wrap">
+
+  <section class="card form-card" aria-labelledby="form-title">
+    <h2 class="card-title" id="form-title">记一笔</h2>
+    <form id="record-form" novalidate>
+      <input type="hidden" id="record-id">
+
+      <div class="segmented" role="radiogroup" aria-label="收支方向">
+        <label class="segment segment-expense">
+          <input type="radio" name="type" value="expense" checked>
+          <span>支出</span>
+        </label>
+        <label class="segment segment-income">
+          <input type="radio" name="type" value="income">
+          <span>收入</span>
+        </label>
+      </div>
+
+      <div class="field-row">
+        <div class="field field-amount">
+          <label for="amount">金额</label>
+          <div class="amount-input">
+            <span class="currency" aria-hidden="true">¥</span>
+            <input type="text" id="amount" inputmode="decimal" placeholder="0.00"
+                   autocomplete="off" aria-describedby="amount-error">
+          </div>
+          <p class="error" id="amount-error" role="alert"></p>
+        </div>
+
+        <div class="field field-date">
+          <label for="date">日期</label>
+          <input type="date" id="date" aria-describedby="date-error">
+          <p class="error" id="date-error" role="alert"></p>
+        </div>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="category">分类</label>
+          <input type="text" id="category" list="category-options" placeholder="选择或自己输入"
+                 autocomplete="off" maxlength="20" aria-describedby="category-error">
+          <datalist id="category-options"></datalist>
+          <p class="error" id="category-error" role="alert"></p>
+        </div>
+
+        <div class="field">
+          <label for="note">备注 <span class="optional">选填</span></label>
+          <input type="text" id="note" maxlength="200" placeholder="比如：和同事的午饭"
+                 autocomplete="off" aria-describedby="note-error">
+          <p class="error" id="note-error" role="alert"></p>
+        </div>
+      </div>
+
+      <div class="chips" id="category-chips"></div>
+
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary" id="submit-btn">保存</button>
+        <button type="button" class="btn btn-ghost" id="cancel-edit" hidden>取消修改</button>
+      </div>
+    </form>
+  </section>
+
+  <section class="stats" aria-label="本期汇总">
+    <div class="stat stat-income">
+      <span class="stat-label">收入</span>
+      <strong class="stat-value" id="stat-income">¥0.00</strong>
+    </div>
+    <div class="stat stat-expense">
+      <span class="stat-label">支出</span>
+      <strong class="stat-value" id="stat-expense">¥0.00</strong>
+    </div>
+    <div class="stat stat-balance">
+      <span class="stat-label">结余</span>
+      <strong class="stat-value" id="stat-balance">¥0.00</strong>
+    </div>
+  </section>
+
+  <div class="columns">
+
+    <section class="card" aria-labelledby="list-title">
+      <div class="card-head">
+        <h2 class="card-title" id="list-title">明细</h2>
+        <span class="count" id="record-count"></span>
+      </div>
+
+      <div class="filters">
+        <label class="sr-only" for="filter-month">月份</label>
+        <select id="filter-month"></select>
+
+        <label class="sr-only" for="filter-type">类型</label>
+        <select id="filter-type">
+          <option value="all">全部收支</option>
+          <option value="expense">只看支出</option>
+          <option value="income">只看收入</option>
+        </select>
+
+        <label class="sr-only" for="filter-category">分类</label>
+        <select id="filter-category"></select>
+
+        <label class="sr-only" for="filter-keyword">搜索</label>
+        <input type="search" id="filter-keyword" placeholder="搜分类或备注" autocomplete="off">
+      </div>
+
+      <ul class="records" id="record-list"></ul>
+      <p class="empty" id="empty-state" hidden></p>
+    </section>
+
+    <aside class="side">
+      <section class="card" aria-labelledby="breakdown-title">
+        <h2 class="card-title" id="breakdown-title">支出构成</h2>
+        <div id="breakdown"></div>
+      </section>
+
+      <section class="card" aria-labelledby="trend-title">
+        <h2 class="card-title" id="trend-title">近半年趋势</h2>
+        <div id="trend"></div>
+      </section>
+    </aside>
+
+  </div>
+</main>
+
+<footer class="wrap footer">
+  <p>数据只存在这台设备的浏览器里，不会上传到任何服务器。换设备或清缓存前记得导出 CSV。</p>
+</footer>
+
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<script src="js/core.js"></script>
+<script src="js/storage.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

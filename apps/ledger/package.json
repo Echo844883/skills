@@ -1,0 +1,10 @@
+{
+  "name": "ledger",
+  "version": "1.0.0",
+  "private": true,
+  "description": "零依赖的本地记账应用",
+  "license": "MIT",
+  "scripts": {
+    "test": "node --test test/core.test.js"
+  }
+}
