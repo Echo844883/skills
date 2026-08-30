@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Echo 的工具站</title>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", Roboto, sans-serif;
+    color: #1c1f2b;
+    padding: 24px;
+  }
+  .card {
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 12px 40px rgba(20, 22, 40, 0.22);
+    padding: 36px 32px;
+    max-width: 480px;
+    width: 100%;
+  }
+  h1 { margin: 0 0 6px; font-size: 1.35rem; }
+  p.sub { margin: 0 0 24px; color: #666c7d; font-size: 0.92rem; }
+  a.tool {
+    display: block;
+    border: 1px solid #e3e6ee;
+    border-radius: 12px;
+    padding: 18px 20px;
+    text-decoration: none;
+    color: inherit;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  a.tool:hover { border-color: #4f46e5; background: #eef0ff; }
+  a.tool .name { font-weight: 600; display: block; margin-bottom: 4px; color: #3730a3; }
+  a.tool .desc { font-size: 0.85rem; color: #666c7d; }
+  footer { margin-top: 22px; font-size: 0.78rem; color: #8b90a0; }
+  footer a { color: #4f46e5; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>Echo 的工具站</h1>
+    <p class="sub">这个页面由 GitHub 仓库自动发布，下面是目前可用的工具。</p>
+
+    <a class="tool" href="./probability-weight-calculator/">
+      <span class="name">目标成功率评估器 →</span>
+      <span class="desc">选定目标（考研 / 保研 / 就业），勾选要评估的内容并打分，自动生成权重分配与综合成功率。</span>
+    </a>
+
+    <footer>
+      源码仓库：<a href="https://github.com/Echo844883/skills">github.com/Echo844883/skills</a>
+    </footer>
+  </div>
+</body>
+</html>
