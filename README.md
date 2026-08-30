@@ -144,6 +144,22 @@ content to be on the default branch):
 For every project on a machine, copy the skill directories you want into
 `~/.claude/skills/`.
 
+## Apps
+
+Standalone apps that live in this repo alongside the skills — not skills themselves,
+not vendored from anywhere.
+
+| Directory | What it is |
+| --- | --- |
+| `apps/biz-ledger` | 记账报税助手 — bookkeeping and VAT/corporate-income-tax estimation for mainland China small businesses. Not an official filing system: it computes numbers from editable, clearly-labeled example tax parameters for you or your accountant to file with. Local version is a zero-dependency static page (`localStorage`); a `build-hosted.js` script assembles a second version that syncs through Claude's Artifact `artifact` capability, so a published link stays in sync across phone and desktop. See [`apps/biz-ledger/README.md`](apps/biz-ledger/README.md). |
+
+Open `apps/biz-ledger/index.html` directly, or serve the directory with any static
+server. Its unit tests run on Node's built-in test runner with no dependencies:
+
+```
+cd apps/biz-ledger && npm test
+```
+
 ## Updating from upstream
 
 - **taste-skill** — re-copy `skills/`, `research/`, `LICENSE`, and `CHANGELOG.md`

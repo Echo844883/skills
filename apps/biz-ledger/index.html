@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="小微企业记账与增值税/企业所得税测算工具，本地保存或云端同步，非官方申报系统。">
+<title>记账报税助手</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📒</text></svg>">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- shell:start -->
+<header class="topbar">
+  <div class="wrap topbar-inner">
+    <h1 class="brand"><span aria-hidden="true">📒</span> 记账报税助手</h1>
+    <div class="topbar-actions">
+      <button type="button" class="btn btn-ghost" id="export-csv">导出 CSV</button>
+      <button type="button" class="btn btn-ghost" id="import-csv">导入 CSV</button>
+      <input type="file" id="file-input" accept=".csv,text/csv" hidden>
+      <button type="button" class="btn btn-ghost btn-danger" id="clear-all">清空</button>
+    </div>
+  </div>
+</header>
+
+<div class="compliance-banner">
+  <div class="wrap">
+    <strong>这是记账与税额测算工具，不是官方申报系统。</strong>
+    税率、起征点、扣除比例等参数均为可编辑的示例值，请核实最新政策后调整；
+    正式申报前请以电子税务局或税务师确认的数字为准。
+  </div>
+</div>
+
+<p class="banner banner-warn" id="storage-warning" hidden>
+  浏览器不允许本站保存数据（隐私模式或站点数据被禁用），这次录入的内容关掉页面就会丢失。
+</p>
+
+<main class="wrap">
+
+  <section class="card settings-card">
+    <button type="button" class="card-head settings-toggle" id="settings-toggle" aria-expanded="false" aria-controls="settings-body">
+      <h2 class="card-title">纳税人与税务参数</h2>
+      <span class="settings-summary" id="settings-summary"></span>
+      <span class="chevron" aria-hidden="true">›</span>
+    </button>
+
+    <div id="settings-body" class="settings-body" hidden>
+      <p class="notice">以下数值为示例，不代表当前有效政策，请核实后修改。</p>
+
+      <div class="field-row">
+        <div class="field">
+          <label>纳税人类型</label>
+          <div class="segmented" role="radiogroup" aria-label="纳税人类型">
+            <label class="segment"><input type="radio" name="taxpayerType" value="small" checked><span>小规模纳税人</span></label>
+            <label class="segment"><input type="radio" name="taxpayerType" value="general"><span>一般纳税人</span></label>
+          </div>
+        </div>
+        <div class="field">
+          <label>申报周期</label>
+          <div class="segmented" role="radiogroup" aria-label="申报周期">
+            <label class="segment"><input type="radio" name="period" value="month" checked><span>按月</span></label>
+            <label class="segment"><input type="radio" name="period" value="quarter"><span>按季</span></label>
+          </div>
+        </div>
+      </div>
+
+      <div class="field-row" id="settings-small-fields">
+        <div class="field">
+          <label for="s-vat-small-rate">增值税征收率 (%)</label>
+          <input type="text" id="s-vat-small-rate" inputmode="decimal">
+          <p class="error" id="s-vat-small-rate-error" role="alert"></p>
+        </div>
+        <div class="field">
+          <label for="s-vat-threshold-month">月销售额起征点 (元)</label>
+          <input type="text" id="s-vat-threshold-month" inputmode="decimal">
+          <p class="error" id="s-vat-threshold-month-error" role="alert"></p>
+        </div>
+        <div class="field">
+          <label for="s-vat-threshold-quarter">季度销售额起征点 (元)</label>
+          <input type="text" id="s-vat-threshold-quarter" inputmode="decimal">
+          <p class="error" id="s-vat-threshold-quarter-error" role="alert"></p>
+        </div>
+      </div>
+
+      <div class="field-row" id="settings-general-fields" hidden>
+        <div class="field">
+          <label for="s-vat-opening-credit">期初留抵税额 (元)</label>
+          <input type="text" id="s-vat-opening-credit" inputmode="decimal">
+          <p class="error" id="s-vat-opening-credit-error" role="alert"></p>
+        </div>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="s-surtax-rate">附加税合计比例 (%)</label>
+          <input type="text" id="s-surtax-rate" inputmode="decimal">
+          <p class="error" id="s-surtax-rate-error" role="alert"></p>
+        </div>
+      </div>
+
+      <p class="notice notice-tight">企业所得税分档税率——应纳税所得额在下方上限以内的部分按低档税率计算，超出部分按高档税率计算：</p>
+      <div class="field-row field-row-3">
+        <div class="field">
+          <label for="s-cit-cap">低档上限 (元)</label>
+          <input type="text" id="s-cit-cap" inputmode="decimal">
+          <p class="error" id="s-cit-cap-error" role="alert"></p>
+        </div>
+        <div class="field">
+          <label for="s-cit-low">低档税率 (%)</label>
+          <input type="text" id="s-cit-low" inputmode="decimal">
+          <p class="error" id="s-cit-low-error" role="alert"></p>
+        </div>
+        <div class="field">
+          <label for="s-cit-high">高档税率 (%)</label>
+          <input type="text" id="s-cit-high" inputmode="decimal">
+          <p class="error" id="s-cit-high-error" role="alert"></p>
+        </div>
+      </div>
+
+      <details class="advanced">
+        <summary>进阶：扣除限额参数（仅用于提示，不改变测算数字）</summary>
+        <div class="field-row field-row-3">
+          <div class="field">
+            <label for="s-entertain-rate">业务招待费可扣比例 (%)</label>
+            <input type="text" id="s-entertain-rate" inputmode="decimal">
+            <p class="error" id="s-entertain-rate-error" role="alert"></p>
+          </div>
+          <div class="field">
+            <label for="s-entertain-cap">业务招待费收入占比上限 (%)</label>
+            <input type="text" id="s-entertain-cap" inputmode="decimal">
+            <p class="error" id="s-entertain-cap-error" role="alert"></p>
+          </div>
+          <div class="field">
+            <label for="s-ad-cap">广告宣传费收入占比上限 (%)</label>
+            <input type="text" id="s-ad-cap" inputmode="decimal">
+            <p class="error" id="s-ad-cap-error" role="alert"></p>
+          </div>
+        </div>
+      </details>
+
+      <div class="form-actions">
+        <button type="button" class="btn btn-primary" id="settings-save">保存参数</button>
+        <span class="save-hint" id="settings-save-hint" role="status" aria-live="polite"></span>
+      </div>
+    </div>
+  </section>
+
+  <section class="card form-card" aria-labelledby="form-title">
+    <h2 class="card-title" id="form-title">记一笔</h2>
+    <form id="record-form" novalidate>
+      <input type="hidden" id="record-id">
+
+      <div class="segmented" role="radiogroup" aria-label="收支方向">
+        <label class="segment segment-expense">
+          <input type="radio" name="direction" value="expense" checked>
+          <span>支出</span>
+        </label>
+        <label class="segment segment-income">
+          <input type="radio" name="direction" value="income">
+          <span>收入</span>
+        </label>
+      </div>
+
+      <div class="field-row">
+        <div class="field field-amount">
+          <label for="grossAmount">价税合计</label>
+          <div class="amount-input">
+            <span class="currency" aria-hidden="true">¥</span>
+            <input type="text" id="grossAmount" inputmode="decimal" placeholder="0.00" autocomplete="off">
+          </div>
+          <p class="error" id="grossAmount-error" role="alert"></p>
+        </div>
+        <div class="field field-date">
+          <label for="date">日期</label>
+          <input type="date" id="date">
+          <p class="error" id="date-error" role="alert"></p>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>税率</label>
+        <div class="chips" id="rate-chips"></div>
+        <input type="text" id="taxRate" inputmode="decimal" placeholder="自定义税率，如 1.5" autocomplete="off" style="margin-top:8px">
+        <p class="error" id="taxRate-error" role="alert"></p>
+      </div>
+
+      <div class="tax-preview" id="tax-preview" aria-live="polite"></div>
+
+      <div class="field">
+        <label>发票类型</label>
+        <div class="chips" id="invoice-chips"></div>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="counterparty">往来单位 <span class="optional">选填</span></label>
+          <input type="text" id="counterparty" maxlength="60" placeholder="客户或供应商名称" autocomplete="off">
+          <p class="error" id="counterparty-error" role="alert"></p>
+        </div>
+        <div class="field">
+          <label for="invoiceNo">发票号 <span class="optional">选填</span></label>
+          <input type="text" id="invoiceNo" maxlength="40" autocomplete="off">
+          <p class="error" id="invoiceNo-error" role="alert"></p>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="category">科目</label>
+        <input type="text" id="category" list="category-options" placeholder="选择或自己输入" autocomplete="off" maxlength="20">
+        <datalist id="category-options"></datalist>
+        <p class="error" id="category-error" role="alert"></p>
+      </div>
+      <div class="chips" id="category-chips"></div>
+
+      <div class="field">
+        <label for="note">备注 <span class="optional">选填</span></label>
+        <input type="text" id="note" maxlength="200" placeholder="比如：8 月办公室房租" autocomplete="off">
+        <p class="error" id="note-error" role="alert"></p>
+      </div>
+
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary" id="submit-btn">保存</button>
+        <button type="button" class="btn btn-ghost" id="cancel-edit" hidden>取消修改</button>
+      </div>
+    </form>
+  </section>
+
+  <section class="stats" aria-label="本期汇总">
+    <div class="stat stat-income">
+      <span class="stat-label">当前筛选·收入（不含税）</span>
+      <strong class="stat-value" id="stat-income">¥0.00</strong>
+    </div>
+    <div class="stat stat-expense">
+      <span class="stat-label">当前筛选·支出（不含税）</span>
+      <strong class="stat-value" id="stat-expense">¥0.00</strong>
+    </div>
+    <div class="stat stat-balance">
+      <span class="stat-label">当前筛选·利润</span>
+      <strong class="stat-value" id="stat-profit">¥0.00</strong>
+    </div>
+  </section>
+
+  <div class="columns">
+
+    <section class="card" aria-labelledby="list-title">
+      <div class="card-head">
+        <h2 class="card-title" id="list-title">明细</h2>
+        <span class="count" id="record-count"></span>
+      </div>
+
+      <div class="filters">
+        <label class="sr-only" for="filter-period">期间</label>
+        <select id="filter-period"></select>
+
+        <label class="sr-only" for="filter-direction">方向</label>
+        <select id="filter-direction">
+          <option value="all">全部收支</option>
+          <option value="expense">只看支出</option>
+          <option value="income">只看收入</option>
+        </select>
+
+        <label class="sr-only" for="filter-category">科目</label>
+        <select id="filter-category"></select>
+
+        <label class="sr-only" for="filter-invoice">发票</label>
+        <select id="filter-invoice">
+          <option value="all">全部发票类型</option>
+          <option value="special">增值税专用发票</option>
+          <option value="general">普通发票</option>
+          <option value="none">无票</option>
+        </select>
+
+        <label class="sr-only" for="filter-keyword">搜索</label>
+        <input type="search" id="filter-keyword" placeholder="搜科目 / 往来单位 / 发票号 / 备注" autocomplete="off">
+      </div>
+
+      <ul class="records" id="record-list"></ul>
+      <p class="empty" id="empty-state" hidden></p>
+    </section>
+
+    <aside class="side">
+      <section class="card" aria-labelledby="vat-title">
+        <div class="card-head">
+          <h2 class="card-title" id="vat-title">增值税测算</h2>
+          <select id="vat-period"></select>
+        </div>
+        <div id="vat-report"></div>
+      </section>
+
+      <section class="card" aria-labelledby="surtax-title">
+        <h2 class="card-title" id="surtax-title">附加税测算</h2>
+        <div id="surtax-report"></div>
+      </section>
+
+      <section class="card" aria-labelledby="cit-title">
+        <div class="card-head">
+          <h2 class="card-title" id="cit-title">企业所得税测算（年度）</h2>
+          <select id="cit-year"></select>
+        </div>
+        <div id="cit-report"></div>
+      </section>
+
+      <section class="card" aria-labelledby="invoice-title">
+        <h2 class="card-title" id="invoice-title">发票概览</h2>
+        <div id="invoice-report"></div>
+      </section>
+    </aside>
+
+  </div>
+</main>
+
+<footer class="wrap footer">
+  <p>数据默认只存在这台设备的浏览器里，不会上传到任何服务器（云端同步版本除外，见页面顶部同步状态）。测算结果不构成税务建议，正式申报请以官方系统或税务师核实的数字为准。</p>
+</footer>
+
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+<!-- shell:end -->
+
+<script src="js/core.js"></script>
+<script src="js/storage.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
