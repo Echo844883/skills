@@ -290,6 +290,19 @@
     padding-left: 12px;
   }
   .note strong { color: var(--ink-mid); font-weight: 600; }
+
+  /* App 内置浏览器提示：微信/QQ/抖音这类内置浏览器不支持通知权限申请 */
+  .callout {
+    border: 1px solid rgba(255,107,94,.35);
+    background: var(--danger-w);
+    border-radius: var(--r-card);
+    padding: 14px 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .callout-title { margin: 0; font-size: 13.5px; font-weight: 700; color: var(--danger); }
+  .callout-body { margin: 0; font-size: 12.5px; line-height: 1.65; color: var(--ink-mid); }
 </style>
 <style>
   /* ── 第一页：海报 ───────────────────────────────────── */
@@ -687,6 +700,16 @@
       </div>
       <p class="lede">提醒要真正推到锁屏上，需要你先把三项权限交给这个页面。全部在本机生效，不上传任何东西。</p>
 
+      <div class="callout" id="inapp-callout" hidden>
+        <p class="callout-title">检测到你在 <span id="inapp-name">App 内置浏览器</span> 里打开</p>
+        <p class="callout-body">
+          这类内置浏览器不支持申请系统通知权限——这是它的限制，换不了。点右上角
+          「更多」或分享按钮找「在浏览器打开」；找不到就复制链接，粘贴到 Chrome 或
+          手机自带浏览器里打开，才能拿到通知权限。
+        </p>
+        <button class="btn" id="btn-copy-link">复制本页链接</button>
+      </div>
+
       <div class="card">
         <div class="card-hd">
           <h2>系统通知</h2>
@@ -697,6 +720,10 @@
         <p class="note" id="frame-note" hidden>
           这个页面现在嵌在别的页面里，浏览器不允许在这种情况下申请通知权限。
           <strong>把本页地址在新标签页单独打开</strong>，再回到这里授权。
+        </p>
+        <p class="note" id="perm-fallback" hidden>
+          拿不到也不影响用：只要不划掉这个页面，到点了依然会用声音、振动和页面里的
+          全屏提醒叫你，只是没有锁屏通知。
         </p>
       </div>
 
@@ -982,6 +1009,42 @@
   var wakeLock = null;
   var wakeWanted = false;
 
+  /* 微信/QQ/抖音这类 App 内置浏览器（Android 上常见）普遍不实现 Notification
+     API，即使实现了，requestPermission 往往也是静默不响应——这是宿主 App 的
+     限制，代码改不了，只能检测出来后引导用户去系统浏览器打开。 */
+  function detectInApp(ua) {
+    ua = ua || navigator.userAgent || "";
+    if (/MicroMessenger/i.test(ua)) return "微信";
+    if (/\bQQ\/[\d.]/i.test(ua) && !/MQQBrowser/i.test(ua)) return "QQ";
+    if (/aweme|musical_ly|ttwebview|bytedancewebview/i.test(ua)) return "抖音";
+    if (/Weibo/i.test(ua)) return "微博";
+    if (/DingTalk/i.test(ua)) return "钉钉";
+    return null;
+  }
+  var inAppName = detectInApp();
+
+  function showInAppCallout() {
+    if (!inAppName) return;
+    $("inapp-name").textContent = inAppName;
+    $("inapp-callout").hidden = false;
+  }
+  $("btn-copy-link").addEventListener("click", function () {
+    var url = location.href;
+    var done = function () { $("btn-copy-link").textContent = "已复制，去系统浏览器粘贴"; };
+    var fail = function () { window.prompt("复制不了？手动选中并复制这个链接：", url); };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url).then(done).catch(fail);
+    } else {
+      try {
+        var ta = document.createElement("textarea");
+        ta.value = url; ta.style.position = "fixed"; ta.style.opacity = "0";
+        document.body.appendChild(ta); ta.select();
+        document.execCommand("copy") ? done() : fail();
+        document.body.removeChild(ta);
+      } catch (e) { fail(); }
+    }
+  });
+
   function permState() {
     if (!hasNotify) return "unsupported";
     if (framed && Notification.permission !== "granted") return "framed";
@@ -1004,7 +1067,9 @@
                                 : s === "framed" ? "请在独立标签页打开本页后再授权"
                                 : s === "unsupported" ? "此浏览器不支持通知" : "请求通知权限";
     $("frame-note").hidden = (s !== "framed");
+    $("perm-fallback").hidden = (s === "granted");
     $("perm-warn").hidden = (s === "granted");
+    if (s === "unsupported" && inAppName) showInAppCallout();
   }
 
   $("req-notify").addEventListener("click", function () {
@@ -1017,6 +1082,11 @@
       var p = Notification.requestPermission(done);
       if (p && typeof p.then === "function") p.then(done).catch(function () { paintPerm(); });
     } catch (e) { paintPerm(); }
+    if (inAppName) {
+      setTimeout(function () {
+        if (Notification.permission === "default") showInAppCallout();
+      }, 3500);
+    }
   });
 
   function notify(title, body) {
@@ -1491,6 +1561,10 @@
     ok(repeatText({ mode: "week", days: [1, 2, 3, 4, 5] }) === "工作日", "周一至周五应识别为工作日");
     ok(dots.length === pages.length, "点位数量应与页面数量一致");
     ok(document.querySelectorAll(".pager > .page").length === pages.length, "页面数量应与导航一致");
+    ok(detectInApp("Mozilla/5.0 ... MicroMessenger/8.0.40") === "微信", "应识别出微信内置浏览器");
+    ok(detectInApp("Mozilla/5.0 ... V1_AND_SQ_8.9.68 QQ/8.9.68.51") === "QQ", "应识别出 QQ 内置浏览器");
+    ok(detectInApp("Mozilla/5.0 ... MQQBrowser/13.5") === null, "独立 QQ 浏览器不应被误判为内置浏览器");
+    ok(detectInApp("Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 Chrome/120.0") === null, "普通 Chrome 不应被误判");
 
     /* 按钮不能换行成两行：响铃层在窄屏下最容易出问题 */
     $("ring").hidden = false;

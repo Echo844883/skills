@@ -253,6 +253,24 @@
   .perm-desc { grid-area: desc; font-size: 11.5px; color: var(--ink-dim); line-height: 1.6; }
   .perm-row .btn { grid-area: btn; margin-top: 6px; }
 
+  .perm-fallback {
+    grid-column: 1 / -1;
+    font-size: 11px; line-height: 1.6; color: var(--ink-dim);
+    margin-top: 6px; padding-top: 6px; border-top: 1px dashed var(--line);
+  }
+
+  /* App 内置浏览器提示：微信/QQ/抖音这类内置浏览器不支持通知权限申请 */
+  .callout {
+    margin: 12px 14px 0;
+    padding: 11px 12px;
+    border-radius: var(--r-ctl);
+    background: var(--warn-wash);
+    border: 1px solid rgba(196, 85, 58, .28);
+  }
+  .callout-title { margin: 0 0 4px; font-size: 12.5px; font-weight: 700; color: var(--warn); }
+  .callout-body { margin: 0; font-size: 11.5px; line-height: 1.65; color: var(--ink-mid); }
+  .callout-acts { margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap; }
+
   .pill {
     grid-area: pill;
     display: inline-flex; align-items: center; gap: 5px;
@@ -424,12 +442,27 @@
 
     <section class="card" id="card-perm">
       <div class="card-hd"><h2>授权</h2></div>
+      <div class="callout" id="inapp-callout" hidden>
+        <p class="callout-title">检测到你在<span id="inapp-name">App 内置浏览器</span>里打开</p>
+        <p class="callout-body">
+          这类内置浏览器不支持申请系统通知权限——这是它的限制，换不了。点右上角
+          「更多」或分享按钮找「在浏览器打开」；找不到就复制链接，粘贴到 Chrome 或
+          手机自带浏览器里打开，才能拿到通知权限。
+        </p>
+        <div class="callout-acts">
+          <button class="btn btn-sm" id="btn-copy-link">复制本页链接</button>
+        </div>
+      </div>
       <div class="perm-list">
         <div class="perm-row">
           <span class="perm-label">系统通知</span>
           <span class="pill" id="pill-notify">未授权</span>
           <p class="perm-desc">允许后，时间一到会弹出系统通知，锁屏也能看到。</p>
           <button class="btn btn-sm" id="btn-notify">请求通知权限</button>
+          <p class="perm-fallback" id="perm-fallback" hidden>
+            拿不到也不影响用：只要不划掉这个页面，到点了依然会用声音、振动和页面里的
+            弹窗提醒你，只是没有锁屏通知。
+          </p>
         </div>
         <div class="perm-row">
           <span class="perm-label">声音与振动</span>
@@ -617,6 +650,45 @@
   var wakeLock = null;
   var wakeWanted = false;
 
+  /* 微信/QQ/抖音这类 App 内置浏览器（Android 上常见）普遍不实现 Notification
+     API，即使实现了，requestPermission 往往也是静默不响应——这是宿主 App 的
+     限制，代码改不了，只能检测出来后引导用户去系统浏览器打开。 */
+  function detectInApp(ua) {
+    ua = ua || navigator.userAgent || "";
+    if (/MicroMessenger/i.test(ua)) return "微信";
+    if (/\bQQ\/[\d.]/i.test(ua) && !/MQQBrowser/i.test(ua)) return "QQ";
+    if (/aweme|musical_ly|ttwebview|bytedancewebview/i.test(ua)) return "抖音";
+    if (/Weibo/i.test(ua)) return "微博";
+    if (/DingTalk/i.test(ua)) return "钉钉";
+    return null;
+  }
+  var inAppName = detectInApp();
+
+  function showInAppCallout() {
+    if (!inAppName) return;
+    $("inapp-name").textContent = inAppName;
+    $("inapp-callout").hidden = false;
+  }
+  $("btn-copy-link").addEventListener("click", function () {
+    var url = location.href;
+    var done = function () { toast("已复制，去系统浏览器粘贴打开"); };
+    var fail = function () {
+      // 部分内置浏览器连 Clipboard API 都禁用，退回选中文案的老办法
+      window.prompt("复制不了？手动选中并复制这个链接：", url);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url).then(done).catch(fail);
+    } else {
+      try {
+        var ta = document.createElement("textarea");
+        ta.value = url; ta.style.position = "fixed"; ta.style.opacity = "0";
+        document.body.appendChild(ta); ta.select();
+        document.execCommand("copy") ? done() : fail();
+        document.body.removeChild(ta);
+      } catch (e) { fail(); }
+    }
+  });
+
   function permState() {
     if (!hasNotify) return "unsupported";
     if (framed && Notification.permission !== "granted") return "framed";
@@ -638,6 +710,8 @@
                                 : s === "denied" ? "请到浏览器设置重新允许"
                                 : s === "framed" ? "请在独立标签页打开本页"
                                 : s === "unsupported" ? "此浏览器不支持通知" : "请求通知权限";
+    $("perm-fallback").hidden = (s === "granted");
+    if (s === "unsupported" && inAppName) showInAppCallout();
   }
 
   $("btn-notify").addEventListener("click", function () {
@@ -650,6 +724,13 @@
       var p = Notification.requestPermission(done);
       if (p && typeof p.then === "function") p.then(done).catch(function () { paintPerm(); });
     } catch (e) { paintPerm(); }
+    // 部分内置浏览器里 Notification 对象存在，但 requestPermission 悄悄不响应，
+    // 界面会一直卡在「未授权」。点了以后等一会儿还是老样子，就当它不支持处理。
+    if (inAppName) {
+      setTimeout(function () {
+        if (Notification.permission === "default") showInAppCallout();
+      }, 3500);
+    }
   });
 
   function notify(title, body) {
@@ -1022,6 +1103,10 @@
     ok(document.querySelectorAll(".rail .card").length === 2, "侧栏应有 2 张卡片");
     ok(dlgNew.tagName === "DIALOG" && dlgRing.tagName === "DIALOG", "新建与响铃都应是原生 dialog");
     ok(document.documentElement.scrollWidth <= window.innerWidth + 1, "文档不应横向溢出");
+    ok(detectInApp("Mozilla/5.0 ... MicroMessenger/8.0.40") === "微信", "应识别出微信内置浏览器");
+    ok(detectInApp("Mozilla/5.0 ... V1_AND_SQ_8.9.68 QQ/8.9.68.51") === "QQ", "应识别出 QQ 内置浏览器");
+    ok(detectInApp("Mozilla/5.0 ... MQQBrowser/13.5") === null, "独立 QQ 浏览器不应被误判为内置浏览器");
+    ok(detectInApp("Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 Chrome/120.0") === null, "普通 Chrome 不应被误判");
 
     if (fails.length) {
       console.error("自检失败 " + fails.length + " 项：\n- " + fails.join("\n- "));
