@@ -52,8 +52,6 @@ const after = `
 const script = [core, store, boot, app, after].join('\n');
 
 const out = `<title>记账报税助手</title>
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 <style id="app-css">
 ${css}
 </style>

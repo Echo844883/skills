@@ -116,8 +116,6 @@ window.LedgerStore = (function () {
       '<meta charset="utf-8">',
       '<meta name="viewport" content="width=device-width, initial-scale=1">',
       '<title>记账报税助手<\/title>',
-      '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>',
-      '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap">',
       '<style id="app-css">' + sourceOf('app-css') + '<\/style>',
       '</head>',
       '<body>',
